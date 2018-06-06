@@ -1,0 +1,10 @@
+*
+!.gitignore
+!makefile
+!*.c
+!*.a
+!*.txt
+!*.h
+!*.f
+!*.f90
+!*/
