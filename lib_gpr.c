@@ -394,7 +394,7 @@ int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, i
 
 	ret = dlevmar_der(cost_fun, jac_cost_fun, p, f, np, n, 1000, opts, info, NULL, NULL, gp);
 
-	fprintf(stderr, "Levenberg-Marquardt returned %d in %g iter, reason %g\nSolution: ", ret, info[5],
+	fprintf(stderr, "Levenberg-Marquardt returned %f in %f iter, reason %f\nSolution: ", ret, info[5],
 		info[6]);
 	fprintf(stderr, "\n\nMinimization info:\n");
 	for (i = 0; i < LM_INFO_SZ; ++i) {
