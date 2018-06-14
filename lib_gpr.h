@@ -1,4 +1,4 @@
-#define NP_SE (2)
+#define NP_SE (1)
 #define NP_SE_NSE (3)
 
 struct gpr_dat {
@@ -32,6 +32,4 @@ int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long 
 int get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
 double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd, double *ret);
 int get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
-void cost_fun(double *p, double *f, int np, int n, void *data);
-void jac_cost_fun(double *p, double *jac, int np, int n, void *data);
 int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
