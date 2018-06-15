@@ -1,5 +1,5 @@
 #define NP_SE (1)
-#define NP_SE_NSE (3)
+#define NP_SE_ARD (6)
 
 struct gpr_dat {
 	unsigned long int ns;
@@ -27,9 +27,11 @@ extern double dsyrk_(const unsigned char *UPLO, const unsigned char *TRA, const 
 
 double fit_gpr(double *y, double *x, unsigned long ns, unsigned long dim, double *krn);
 int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
+int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
 int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim, const double *y);
 int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns);
 int get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
 double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd, double *ret);
 int get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
 int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
+int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
