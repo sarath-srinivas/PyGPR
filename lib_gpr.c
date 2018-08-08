@@ -809,7 +809,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	gp->y = y;
 	gp->r2 = NULL;
 
-	max_iter = 1000;
+	max_iter = 10000;
 
 	fun.n = np;
 	fun.f = cost_fun_ard;
@@ -827,7 +827,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	T = gsl_multimin_fdfminimizer_conjugate_fr;
 	s = gsl_multimin_fdfminimizer_alloc(T, np);
 
-	step = 1E-3;
+	step = 1E-2;
 	tol = 1E-5;
 
 	gsl_multimin_fdfminimizer_set(s, &fun, pv, step, tol);
