@@ -809,7 +809,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	gp->y = y;
 	gp->r2 = NULL;
 
-	max_iter = 10000;
+	max_iter = 1000;
 
 	fun.n = np;
 	fun.f = cost_fun_ard;
@@ -859,4 +859,47 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	free(gp);
 
 	return 0;
+}
+
+void gpr_interploate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
+		     double *yp, double *p, unsigned int npar, double *var_yp)
+{
+	double *krxx, *lkrxx, *krpx, *krpp, *wt;
+	int info;
+
+	krxx = malloc(ns * ns * sizeof(double));
+	assert(krxx);
+
+	lkrxx = malloc(ns * ns * sizeof(double));
+	assert(lkrxx);
+
+	krpx = malloc(np * ns * sizeof(double));
+	assert(krpx);
+
+	krpp = malloc(np * np * sizeof(double));
+	assert(krpp);
+
+	wt = malloc(ns * sizeof(double));
+	assert(wt);
+
+	get_hyper_param_ard(p, npar, x, y, ns, dim);
+
+	get_krn_se_ard(krxx, x, x, ns, ns, dim, p, npar);
+
+	info = get_gpr_weights(wt, lkrxx, krxx, ns, dim, y);
+	assert(info == 0);
+
+	get_krn_se_ard(krpx, xp, x, np, ns, dim, p, npar);
+
+	gpr_predict(yp, wt, krpx, np, ns);
+
+	get_krn_se_ard(krpp, xp, xp, np, np, dim, p, npar);
+
+	get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+
+	free(wt);
+	free(krpx);
+	free(lkrxx);
+	free(krxx);
+	free(krpp);
 }
