@@ -809,7 +809,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	gp->y = y;
 	gp->r2 = NULL;
 
-	max_iter = 1000;
+	max_iter = 10000;
 
 	fun.n = np;
 	fun.f = cost_fun_ard;
@@ -828,7 +828,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	s = gsl_multimin_fdfminimizer_alloc(T, np);
 
 	step = 1E-2;
-	tol = 1E-5;
+	tol = 1E-3;
 
 	gsl_multimin_fdfminimizer_set(s, &fun, pv, step, tol);
 
@@ -861,7 +861,7 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	return 0;
 }
 
-void gpr_interploate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
+void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
 		     double *yp, double *p, unsigned int npar, double *var_yp)
 {
 	double *krxx, *lkrxx, *krpx, *krpp, *wt;
@@ -882,7 +882,7 @@ void gpr_interploate(double *y, double *x, unsigned long ns, unsigned int dim, d
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
 
-	get_hyper_param_ard(p, npar, x, y, ns, dim);
+	get_hyper_param_ard(p, npar, x, y, 200, dim);
 
 	get_krn_se_ard(krxx, x, x, ns, ns, dim, p, npar);
 
