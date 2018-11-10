@@ -37,14 +37,14 @@ int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx,
 }
 
 int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-		   unsigned long dim, const double *p, int npar)
+		   unsigned long dim, double sig_y, const double *p, int npar)
 {
 	double sig_y, l, l2, r2, x_xp;
 	unsigned long i, j, k;
 
 	assert(npar == dim);
 
-	sig_y = 1.0;
+	sig_y = 1;
 
 	for (i = 0; i < nx; i++)
 		for (j = 0; j < nxp; j++) {

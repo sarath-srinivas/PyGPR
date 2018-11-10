@@ -24,10 +24,13 @@ extern double ddot_(const int *N, const double *X, const int *incx, const double
 extern double dsyrk_(const unsigned char *UPLO, const unsigned char *TRA, const int *N, const int *K,
 		     const double *ALPHA, const double *A, const int *LDA, const double *BETA, double *C,
 		     const int *LDC);
+extern void dsymv_(const unsigned char *uplo, const int *n, const double *alpha,
+		   const double *a, const int *lda, const double *x, const int *incx, const double *beta,
+		   double *y, const int *incy);
 
 double fit_gpr(double *y, double *x, unsigned long ns, unsigned long dim, double *krn);
 int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
-int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
+int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, double sig_y, const double *p, int npar);
 int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim, const double *y);
 int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns);
 int get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
