@@ -5,7 +5,6 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
 #include "lib_gpr.h"
-#include "../lib_arr/lib_arr.h"
 
 #define PI (3.14159265358979)
 
