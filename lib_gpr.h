@@ -28,9 +28,12 @@ extern void dsymv_(const unsigned char *uplo, const int *n, const double *alpha,
 		   const double *a, const int *lda, const double *x, const int *incx, const double *beta,
 		   double *y, const int *incy);
 
+<<<<<<< HEAD
 /*
 double fit_gpr(double *y, double *x, unsigned long ns, unsigned long dim, double *krn);
 */
+=======
+>>>>>>> 70aa3f8395aec51cc221b43af022cdf631e65326
 int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
 int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
 int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim, const double *y);
