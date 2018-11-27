@@ -1,4 +1,3 @@
-#include "lib_gpr.h"
 #include <assert.h>
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
