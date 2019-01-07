@@ -4,8 +4,8 @@
 #include <math.h>
 #include "lib_gpr.h"
 
-int get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-		     unsigned long dim, const double *par, int npar, const double *hpar, int nhpar)
+void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+		      unsigned long dim, const double *par, int npar, const double *hpar, int nhpar)
 {
 	double sig_y, l, l2, r2, x_xp, alph;
 	unsigned long i, j, k;
@@ -29,6 +29,4 @@ int get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned lo
 
 			krn[i * nxp + j] = sig_y * sig_y * pow((1 + r2 / (2 * alph * l2)), -alph);
 		}
-
-	return 0;
 }

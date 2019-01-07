@@ -8,8 +8,8 @@
 
 #define PI (3.14159265358979)
 
-int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-	       unsigned long dim, const double *p, int npar)
+void get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+		unsigned long dim, const double *p, int npar)
 {
 	double sig_y, l, l2, r2, x_xp;
 	unsigned long i, j, k;
@@ -31,12 +31,10 @@ int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx,
 
 			krn[i * nxp + j] = sig_y * sig_y * exp(-0.5 * r2 / l2);
 		}
-
-	return 0;
 }
 
-int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-		   unsigned long dim, const double *p, int npar)
+void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+		    unsigned long dim, const double *p, int npar)
 {
 	double sig_y, l, l2, r2, x_xp;
 	unsigned long i, j, k;
@@ -56,12 +54,10 @@ int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long
 
 			krn[i * nxp + j] = sig_y * sig_y * exp(-0.5 * r2);
 		}
-
-	return 0;
 }
 
-int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim,
-		    const double *y)
+void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim,
+		     const double *y)
 {
 	double eps;
 	int N, NRHS, LDA, LDB, info;
@@ -88,11 +84,10 @@ int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned lon
 	LDB = (int)ns;
 	NRHS = 1;
 	dposv_(&UPLO, &N, &NRHS, krn_chd, &LDA, wt, &LDB, &info);
-
-	return info;
+	assert(info == 0);
 }
 
-int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns)
+void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns)
 {
 	unsigned char tr;
 	int N, M, LDA, incx, incy;
@@ -108,11 +103,9 @@ int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long 
 	bet = 0;
 
 	dgemv_(&tr, &M, &N, &alph, krnp, &LDA, wt, &incx, &bet, yp, &incy);
-
-	return 0;
 }
 
-int get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned long np, unsigned long ns)
+void get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned long np, unsigned long ns)
 {
 	unsigned char tra, trb, UPLO;
 	int N, M, NRHS, LDA, LDB, LDC, info;
@@ -159,7 +152,7 @@ int get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned 
 
 	free(V);
 
-	return info;
+	assert(info == 0);
 }
 
 double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd,
@@ -195,8 +188,8 @@ double get_log_likelihood(const double *wt, const double *y, unsigned long ns, c
 	return llhd;
 }
 
-int get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np,
-		    unsigned long ns)
+void get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np,
+		     unsigned long ns)
 {
 	unsigned char tra, trb, UPLO, SIDE, DIAG;
 	int N, M, NRHS, LDA, LDB, LDC, info;
@@ -239,8 +232,6 @@ int get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, u
 	dsyrk_(&UPLO, &tra, &M, &N, &alph, V, &N, &bet, var, &LDC);
 
 	free(V);
-
-	return 0;
 }
 
 static double cost_fun(const gsl_vector *pv, void *data)
@@ -268,8 +259,7 @@ static double cost_fun(const gsl_vector *pv, void *data)
 
 	get_krn_se(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	f = -1.0 * get_log_likelihood(wt, gp->y, ns, krn_chd, NULL);
 
@@ -311,8 +301,7 @@ static void jac_cost_fun(const gsl_vector *pv, void *data, gsl_vector *jac)
 
 	get_krn_se(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	/* GETTING B^T = WT^T * K OR B = K^T * WT  */
 
@@ -408,8 +397,7 @@ static void fdf_cost_fun(const gsl_vector *pv, void *data, double *f, gsl_vector
 
 	get_krn_se(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	*f = -1.0 * get_log_likelihood(wt, gp->y, ns, krn_chd, NULL);
 
@@ -501,8 +489,7 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 
 	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	f = -1.0 * get_log_likelihood(wt, gp->y, ns, krn_chd, NULL);
 
@@ -544,8 +531,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 
 	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	N = gp->ns;
 	M = gp->ns;
@@ -634,8 +620,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 
 	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
 
-	info = get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
-	assert(info == 0);
+	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	*f = -1.0 * get_log_likelihood(wt, gp->y, ns, krn_chd, NULL);
 
@@ -695,7 +680,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	free(krn_chd);
 }
 
-int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim)
+void get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim)
 {
 	struct gpr_dat *gp;
 	double *r2, r2ij, x_xp, *f, ret;
@@ -782,11 +767,9 @@ int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, i
 
 	free(gp);
 	free(r2);
-
-	return 0;
 }
 
-int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim)
+void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim)
 {
 	struct gpr_dat *gp;
 	double *f, ret;
@@ -856,8 +839,6 @@ int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long n
 	gsl_vector_free(pv);
 
 	free(gp);
-
-	return 0;
 }
 
 void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
@@ -885,8 +866,7 @@ void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, d
 
 	get_krn_se_ard(krxx, x, x, ns, ns, dim, p, npar);
 
-	info = get_gpr_weights(wt, lkrxx, krxx, ns, dim, y);
-	assert(info == 0);
+	get_gpr_weights(wt, lkrxx, krxx, ns, dim, y);
 
 	get_krn_se_ard(krpx, xp, x, np, ns, dim, p, npar);
 

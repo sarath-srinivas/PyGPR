@@ -28,18 +28,18 @@ extern void dsymv_(const unsigned char *uplo, const int *n, const double *alpha,
 		   const double *a, const int *lda, const double *x, const int *incx, const double *beta,
 		   double *y, const int *incy);
 
-int get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
-int get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
-int get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim, const double *y);
-int gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns);
-int get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
+void get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
+void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);
+void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim, const double *y);
+void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns);
+void get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
 double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd, double *ret);
-int get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
-int get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
-int get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
+void get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
+void get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
+void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np, double *yp, double *p, unsigned int npar, double *var_yp);
 /* COVARIANCE FUNCTIONS */
-int get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *par, int npar, const double *hpar, int nhpar);
+void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *par, int npar, const double *hpar, int nhpar);
 /* TESTS */
 double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
 
