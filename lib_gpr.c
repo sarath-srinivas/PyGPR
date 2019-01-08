@@ -29,7 +29,7 @@ void get_krn_se(double *krn, const double *x, const double *xp, unsigned long nx
 				r2 += x_xp * x_xp;
 			}
 
-			krn[i * nxp + j] = sig_y * sig_y * exp(-0.5 * r2 / l2);
+			krn[i * nxp + j] = sig_y * sig_y * exp(-r2 / l2);
 		}
 }
 
@@ -52,7 +52,7 @@ void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned lon
 				r2 += x_xp * x_xp / (p[k] * p[k]);
 			}
 
-			krn[i * nxp + j] = sig_y * sig_y * exp(-0.5 * r2);
+			krn[i * nxp + j] = sig_y * sig_y * exp(-r2);
 		}
 }
 
@@ -415,13 +415,13 @@ static void fdf_cost_fun(const gsl_vector *pv, void *data, double *f, gsl_vector
 	B = malloc(N * sizeof(double));
 	assert(B);
 
-	/* KL(i,j) = R(i,j)^2 / l^3 */
+	/* KL(i,j) = 2 * R(i,j)^2 / l^3 */
 
 	kl = malloc(N * N * sizeof(double));
 	assert(kl);
 
 	for (i = 0; i < N * N; ++i) {
-		kl[i] = (gp->r2)[i] * krn[i];
+		kl[i] = 2.0 * (gp->r2)[i] * krn[i];
 	}
 
 	dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
@@ -558,7 +558,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 		for (i = 0; i < N; ++i) {
 			for (j = 0; j < N; ++j) {
 				xij_d = (gp->x)[i * dim + k] - (gp->x)[j * dim + k];
-				kl[i * N + j] = (xij_d * xij_d / ld3) * krn[i * N + j];
+				kl[i * N + j] = 2.0 * (xij_d * xij_d / ld3) * krn[i * N + j];
 			}
 		}
 
@@ -649,7 +649,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 		for (i = 0; i < N; ++i) {
 			for (j = 0; j < N; ++j) {
 				xij_d = (gp->x)[i * dim + k] - (gp->x)[j * dim + k];
-				kl[i * N + j] = (xij_d * xij_d / ld3) * krn[i * N + j];
+				kl[i * N + j] = 2.0 * (xij_d * xij_d / ld3) * krn[i * N + j];
 			}
 		}
 
