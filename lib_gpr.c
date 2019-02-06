@@ -4,6 +4,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <atlas/lapack.h>
+#include <atlas/blas.h>
 #include "lib_gpr.h"
 
 #define PI (3.14159265358979)
