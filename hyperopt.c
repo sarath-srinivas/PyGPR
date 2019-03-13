@@ -98,21 +98,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 
 	for (k = 0; k < np; k++) {
 
-		if (k < np - 1) {
-			ld3 = p[k] * p[k] * p[k];
-
-			for (i = 0; i < N; ++i) {
-				for (j = 0; j < N; ++j) {
-					xij_d = (gp->x)[i * dim + k] - (gp->x)[j * dim + k];
-					kl[i * N + j] = 2.0 * (xij_d * xij_d / ld3) * krn[i * N + j];
-				}
-			}
-
-		} else {
-			for (i = 0; i < N2; ++i) {
-				kl[i] = (2.0 / p[k]) * krn[i];
-			}
-		}
+		get_dkrn_se_ard(kl, k, gp->x, krn, N, dim, p, np);
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
@@ -195,22 +181,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 
 	for (k = 0; k < np; k++) {
 
-		if (k < np - 1) {
-
-			ld3 = p[k] * p[k] * p[k];
-
-			for (i = 0; i < N; ++i) {
-				for (j = 0; j < N; ++j) {
-					xij_d = (gp->x)[i * dim + k] - (gp->x)[j * dim + k];
-					kl[i * N + j] = 2.0 * (xij_d * xij_d / ld3) * krn[i * N + j];
-				}
-			}
-
-		} else {
-			for (i = 0; i < N2; ++i) {
-				kl[i] = (2.0 / p[k]) * krn[i];
-			}
-		}
+		get_dkrn_se_ard(kl, k, gp->x, krn, N, dim, p, np);
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
@@ -309,6 +280,98 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 	gsl_vector_free(pv);
 
 	free(gp);
+}
+
+void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
+			       unsigned long nsub, double lrate, int seed)
+{
+	double tol, *pt, *jact, *xsub, *ysub;
+	struct gpr_dat *gp;
+	unsigned long i, m, n, j, iter, max_iter, *a;
+
+	gsl_vector *pv, *jac;
+
+	pt = malloc(np * sizeof(double));
+	assert(pt);
+	jact = malloc(np * sizeof(double));
+	assert(jact);
+
+	xsub = malloc(nsub * dim * sizeof(double));
+	assert(xsub);
+	ysub = malloc(nsub * sizeof(double));
+	assert(ysub);
+	a = malloc(ns * sizeof(unsigned long));
+	assert(a);
+
+	pv = gsl_vector_alloc(np);
+	assert(pv);
+	jac = gsl_vector_alloc(np);
+	assert(jac);
+
+	gp = malloc(1 * sizeof(struct gpr_dat));
+	assert(gp);
+
+	for (i = 0; i < np; i++) {
+		gsl_vector_set(pv, i, p[i]);
+	}
+
+	for (i = 0; i < ns; i++) {
+		a[i] = i;
+	}
+
+	max_iter = 1000;
+
+	for (m = 0; m < max_iter; m++) {
+
+		fisher_yates_shuffle(a, ns, seed);
+
+		for (i = 0; i < nsub; i++) {
+
+			n = a[i];
+
+			for (j = 0; j < nsub; j++) {
+				xsub[i * dim + j] = x[n * dim + j];
+			}
+
+			ysub[i] = y[n];
+		}
+
+		gp->ns = nsub;
+		gp->dim = dim;
+		gp->x = xsub;
+		gp->y = ysub;
+		gp->r2 = NULL;
+
+		jac_cost_fun_ard(pv, gp, jac);
+
+		for (i = 0; i < np; i++) {
+			pt[i] = gsl_vector_get(pv, i);
+			jact[i] = gsl_vector_get(jac, i);
+		}
+
+		for (i = 0; i < np; i++) {
+			printf("P[%ld] %+.15E J[%ld] %+.15E\n", i, pt[i], i, jact[i]);
+		}
+		printf("\n");
+
+		for (i = 0; i < np; i++) {
+			pt[i] = pt[i] - lrate * jact[i];
+		}
+
+		for (i = 0; i < np; i++) {
+			gsl_vector_set(pv, i, pt[i]);
+			gsl_vector_set(jac, i, jact[i]);
+		}
+	}
+
+	free(gp);
+	free(pt);
+	free(jact);
+	free(xsub);
+	free(ysub);
+	free(a);
+	gsl_vector_free(pv);
+	gsl_vector_free(jac);
 }
 
 /* TESTS */
