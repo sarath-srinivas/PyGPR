@@ -38,6 +38,8 @@ void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned lo
 	LDB = (int)ns;
 	NRHS = 1;
 	dposv_(&UPLO, &N, &NRHS, krn_chd, &LDA, wt, &LDB, &info);
+	if (info != 0)
+		fprintf(stderr, "info: %d\n", info);
 	assert(info == 0);
 }
 
@@ -205,7 +207,10 @@ void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, d
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
 
-	get_hyper_param_ard(p, npar, x, y, 200, dim);
+	if (p[0] == -1) {
+		p[0] = 1;
+		get_hyper_param_ard(p, npar, x, y, ns, dim);
+	}
 
 	get_krn_se_ard(krxx, x, x, ns, ns, dim, p, npar);
 
