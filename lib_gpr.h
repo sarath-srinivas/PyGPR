@@ -14,7 +14,7 @@ void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned lo
 void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns);
 void get_var_mat(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
 double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd, double *ret);
-void get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np, unsigned long ns);
+void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const double *krn_chd, unsigned long np, unsigned long ns);
 void get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim, unsigned long nsub, double lrate, int seed);

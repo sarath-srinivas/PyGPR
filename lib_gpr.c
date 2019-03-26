@@ -111,8 +111,8 @@ void get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned
 	assert(info == 0);
 }
 
-void get_var_mat_chd(double *var, double *krnpp, double *krnp, double *krn_chd, unsigned long np,
-		     unsigned long ns)
+void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const double *krn_chd,
+		     unsigned long np, unsigned long ns)
 {
 	unsigned char tra, trb, UPLO, SIDE, DIAG;
 	int N, M, NRHS, LDA, LDB, LDC, info;
