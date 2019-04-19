@@ -1,6 +1,7 @@
 #define NP_SE (1)
 #define NP_SE_ARD (6)
 
+
 struct gpr_dat {
 	unsigned long int ns;
 	int dim;
@@ -18,7 +19,7 @@ void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const
 void get_hyper_param(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim, unsigned long nsub, double lrate, int seed);
-void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np, double *yp, double *p, unsigned int npar, double *var_yp);
+void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np, double *yp, double *p, unsigned int npar, double *var_yp, int is_opt);
 
 /* COVARIANCE FUNCTIONS */
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp, unsigned long dim, const double *p, int npar);

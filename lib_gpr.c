@@ -187,7 +187,7 @@ double get_log_likelihood(const double *wt, const double *y, unsigned long ns, c
 }
 
 void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
-		     double *yp, double *p, unsigned int npar, double *var_yp)
+		     double *yp, double *p, unsigned int npar, double *var_yp, int is_opt)
 {
 	double *krxx, *lkrxx, *krpx, *krpp, *wt;
 	int info;
@@ -207,8 +207,7 @@ void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, d
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
 
-	if (p[0] == -1) {
-		p[0] = 1;
+	if (is_opt) {
 		get_hyper_param_ard(p, npar, x, y, ns, dim);
 	}
 
