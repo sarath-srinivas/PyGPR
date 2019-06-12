@@ -10,8 +10,8 @@
 
 #define PI (3.14159265358979)
 
-void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns, unsigned long dim,
-		     const double *y)
+void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned long ns,
+		     unsigned long dim, const double *y)
 {
 	double eps;
 	int N, NRHS, LDA, LDB, info;
@@ -43,7 +43,8 @@ void get_gpr_weights(double *wt, double *krn_chd, const double *krn, unsigned lo
 	assert(info == 0);
 }
 
-void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np, const unsigned long ns)
+void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long np,
+		 const unsigned long ns)
 {
 	unsigned char tr;
 	int N, M, LDA, incx, incy;
@@ -61,7 +62,8 @@ void gpr_predict(double *yp, const double *wt, const double *krnp, unsigned long
 	dgemv_(&tr, &M, &N, &alph, krnp, &LDA, wt, &incx, &bet, yp, &incy);
 }
 
-void get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned long np, unsigned long ns)
+void get_var_mat(double *var, double *krnpp, double *krnp, double *krn, unsigned long np,
+		 unsigned long ns)
 {
 	unsigned char tra, trb, UPLO;
 	int N, M, NRHS, LDA, LDB, LDC, info;
@@ -157,8 +159,8 @@ void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const
 	free(V);
 }
 
-double get_log_likelihood(const double *wt, const double *y, unsigned long ns, const double *krn_chd,
-			  double *ret)
+double get_log_likelihood(const double *wt, const double *y, unsigned long ns,
+			  const double *krn_chd, double *ret)
 {
 	double llhd, ywt, log_det_k;
 	int N, incx, incy;
@@ -186,8 +188,9 @@ double get_log_likelihood(const double *wt, const double *y, unsigned long ns, c
 	return llhd;
 }
 
-void gpr_interpolate(double *y, double *x, unsigned long ns, unsigned int dim, double *xp, unsigned long np,
-		     double *yp, double *p, unsigned int npar, double *var_yp, int is_opt)
+void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double *y,
+		     unsigned long ns, unsigned int dim, double *p, unsigned int npar,
+		     double *var_yp, int is_opt)
 {
 	double *krxx, *lkrxx, *krpx, *krpp, *wt;
 	int info;

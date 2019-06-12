@@ -70,11 +70,12 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 		p[i] = 1.0;
 	}
 
-	gpr_interpolate(y, x, ns, dim, xp, np, yp, p, npar, var_yp, 1);
+	gpr_interpolate(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1);
 
 	for (i = 0; i < np; i++) {
-		printf("%+.15E %+.15E %+.15E %+.15E %+.15E %+.15E\n", xp[dim * i + 0], xp[dim * i + 1], yp[i],
-		       yt[i], sqrt(var_yp[i * np + i]), fabs(yp[i] - yt[i]));
+		printf("%+.15E %+.15E %+.15E %+.15E %+.15E %+.15E\n", xp[dim * i + 0],
+		       xp[dim * i + 1], yp[i], yt[i], sqrt(var_yp[i * np + i]),
+		       fabs(yp[i] - yt[i]));
 	}
 
 	free(x);
