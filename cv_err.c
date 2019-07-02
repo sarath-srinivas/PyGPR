@@ -40,6 +40,43 @@ void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, do
 	}
 }
 
+double get_gpr_cv_holdout_mse_batch(unsigned long k, double *cv_mse, unsigned long ntst,
+				    const double *y, const double *x, unsigned long n,
+				    unsigned int dim, const double *hp, unsigned long nhp)
+{
+	double *ytrn, *xtrn, *ytst, *xtst, diff;
+	unsigned long ntrn;
+
+	ntrn = n - ntst;
+
+	ytrn = malloc(ntrn * sizeof(double));
+	assert(ytrn);
+	ytst = malloc(ntst * sizeof(double));
+	assert(ytst);
+	ytst_gpr = malloc(ntst * sizeof(double));
+	assert(ytst_gpr);
+
+	xtrn = malloc(ntrn * dim * sizeof(double));
+	assert(xtrn);
+	xtst = malloc(ntst * dim * sizeof(double));
+	assert(xtst);
+
+	get_subsample_cv_holdout(ytst, xtst, ntst, ytrn, xtrn, ntrn, y, x, n, dim, k);
+
+	gpr_interpolate(xtst, ytst_gpr, ntst, xtrn, ytrn, ntrn, dim, hp, nhp, NULL, 0);
+
+	for (i = 0; i < ntst; i++) {
+
+		diff = ytst[i] - ytst_gpr[i];
+		cv_mse[i] = sqrt(diff * diff);
+	}
+
+	free(xtrn);
+	free(xtst);
+	free(ytrn);
+	free(ytst);
+}
+
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed)
 {
