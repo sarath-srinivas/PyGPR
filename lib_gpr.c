@@ -222,9 +222,12 @@ void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double
 
 	gpr_predict(yp, wt, krpx, np, ns);
 
-	get_krn_se_ard(krpp, xp, xp, np, np, dim, p, npar);
+	if (var_yp) {
 
-	get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+		get_krn_se_ard(krpp, xp, xp, np, np, dim, p, npar);
+
+		get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+	}
 
 	free(wt);
 	free(krpx);
