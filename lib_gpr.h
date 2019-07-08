@@ -45,9 +45,11 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, double *ytrn,
 			      double *xtrn, unsigned long ntrn, const double *y, const double *x,
 			      unsigned long n, unsigned int dim, unsigned long k);
-double get_gpr_cv_holdout_mse_batch(unsigned long k, double *cv_mse, unsigned long ntst,
-				    const double *y, const double *x, unsigned long n,
-				    unsigned int dim, const double *hp, unsigned long nhp);
+void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigned long ntst,
+				   const double *x, const double *y, unsigned long n,
+				   unsigned int dim, double *hp, unsigned long nhp);
+void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
+			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst);
 /* TESTS */
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed);

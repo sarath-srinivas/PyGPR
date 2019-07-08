@@ -40,12 +40,12 @@ void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, do
 	}
 }
 
-double get_gpr_cv_holdout_mse_batch(unsigned long k, double *cv_mse, unsigned long ntst,
-				    const double *y, const double *x, unsigned long n,
-				    unsigned int dim, const double *hp, unsigned long nhp)
+void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigned long ntst,
+				   const double *x, const double *y, unsigned long n,
+				   unsigned int dim, double *hp, unsigned long nhp)
 {
-	double *ytrn, *xtrn, *ytst, *xtst, diff;
-	unsigned long ntrn;
+	double *ytrn, *xtrn, *ytst, *ytst_gpr, *xtst, diff;
+	unsigned long ntrn, i;
 
 	ntrn = n - ntst;
 
@@ -68,13 +68,28 @@ double get_gpr_cv_holdout_mse_batch(unsigned long k, double *cv_mse, unsigned lo
 	for (i = 0; i < ntst; i++) {
 
 		diff = ytst[i] - ytst_gpr[i];
-		cv_mse[i] = sqrt(diff * diff);
+		cv_rmse_rel[i] = sqrt(diff * diff) / fabs(ytst[i]);
 	}
 
 	free(xtrn);
 	free(xtst);
 	free(ytrn);
 	free(ytst);
+}
+
+void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
+			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst)
+{
+	unsigned long k, nk;
+
+	assert(n % ntst == 0);
+	nk = n / ntst;
+
+	for (k = 0; k < nk; k++) {
+
+		get_gpr_cv_holdout_rmse_batch(k, &cv_rmse_rel[k * ntst], ntst, x, y, n, dim, hp,
+					      nhp);
+	}
 }
 
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
