@@ -75,6 +75,7 @@ void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigne
 	free(xtst);
 	free(ytrn);
 	free(ytst);
+	free(ytst_gpr);
 }
 
 void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
