@@ -49,7 +49,8 @@ void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigne
 				   const double *x, const double *y, unsigned long n,
 				   unsigned int dim, double *hp, unsigned long nhp);
 void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
-			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst);
+			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst,
+			     unsigned long nbtch);
 /* TESTS */
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed);

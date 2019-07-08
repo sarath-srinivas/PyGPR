@@ -79,14 +79,14 @@ void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigne
 }
 
 void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
-			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst)
+			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst,
+			     unsigned long nbtch)
 {
-	unsigned long k, nk;
+	unsigned long k;
 
 	assert(n % ntst == 0);
-	nk = n / ntst;
 
-	for (k = 0; k < nk; k++) {
+	for (k = 0; k < nbtch; k++) {
 
 		get_gpr_cv_holdout_rmse_batch(k, &cv_rmse_rel[k * ntst], ntst, x, y, n, dim, hp,
 					      nhp);
