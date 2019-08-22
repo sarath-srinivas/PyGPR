@@ -235,3 +235,68 @@ void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double
 	free(krxx);
 	free(krpp);
 }
+
+void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
+			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
+			  unsigned int npar, double *var_yp, int is_opt)
+{
+	double *krxx, *lkrxx, *krpx, *krpp, *wt, *y_res, ALPHA;
+	int info, INCX, INCY, N;
+
+	krxx = malloc(ns * ns * sizeof(double));
+	assert(krxx);
+
+	lkrxx = malloc(ns * ns * sizeof(double));
+	assert(lkrxx);
+
+	krpx = malloc(np * ns * sizeof(double));
+	assert(krpx);
+
+	krpp = malloc(np * np * sizeof(double));
+	assert(krpp);
+
+	y_res = malloc(ns * sizeof(double));
+	assert(y_res);
+
+	wt = malloc(ns * sizeof(double));
+	assert(wt);
+
+	N = ns;
+	INCX = 1;
+	INCY = 1;
+	ALPHA = -1.0;
+
+	dcopy_(&N, y, &INCX, y_res, &INCY);
+
+	daxpy_(&N, &ALPHA, y_mn, &INCX, y_res, &INCY);
+
+	if (is_opt) {
+		get_hyper_param_ard(p, npar, x, y_res, ns, dim);
+	}
+
+	get_krn_se_ard(krxx, x, x, ns, ns, dim, p, npar);
+
+	get_gpr_weights(wt, lkrxx, krxx, ns, dim, y_res);
+
+	get_krn_se_ard(krpx, xp, x, np, ns, dim, p, npar);
+
+	gpr_predict(yp, wt, krpx, np, ns);
+
+	N = np;
+
+	daxpy_(&N, &ALPHA, yp_mn, &INCX, yp, &INCY);
+
+	if (var_yp) {
+
+		get_krn_se_ard(krpp, xp, xp, np, np, dim, p, npar);
+
+		get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+	}
+
+	free(wt);
+	free(y_res);
+	free(krpx);
+	free(lkrxx);
+	free(krxx);
+	free(krpp);
+}

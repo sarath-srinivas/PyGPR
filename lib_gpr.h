@@ -25,6 +25,9 @@ void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned
 void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double *y,
 		     unsigned long ns, unsigned int dim, double *p, unsigned int npar,
 		     double *var_yp, int is_opt);
+void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
+			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
+			  unsigned int npar, double *var_yp, int is_opt);
 
 /* COVARIANCE FUNCTIONS */
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,
@@ -51,6 +54,14 @@ void get_gpr_cv_holdout_rmse_batch(unsigned long k, double *cv_rmse_rel, unsigne
 void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double *y, unsigned long n,
 			     unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst,
 			     unsigned long nbtch);
+void get_gpr_cv_holdout_rmse_batch_mean(unsigned long k, double *cv_rmse_rel, unsigned long ntst,
+					const double *x, const double *y, const double *y_mn,
+					unsigned long n, unsigned int dim, double *hp,
+					unsigned long nhp);
+void get_gpr_cv_holdout_rmse_mean(double *cv_rmse_rel, const double *x, const double *y,
+				  const double *y_mn, unsigned long n, unsigned int dim, double *hp,
+				  unsigned long nhp, unsigned long ntst, unsigned long nbtch);
+
 /* TESTS */
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed);

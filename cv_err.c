@@ -93,6 +93,70 @@ void get_gpr_cv_holdout_rmse(double *cv_rmse_rel, const double *x, const double 
 	}
 }
 
+void get_gpr_cv_holdout_rmse_batch_mean(unsigned long k, double *cv_rmse_rel, unsigned long ntst,
+					const double *x, const double *y, const double *y_mn,
+					unsigned long n, unsigned int dim, double *hp,
+					unsigned long nhp)
+{
+	double *ytrn, *xtrn, *ytst, *ytst_gpr, *xtst, *ytst_mn, *ytrn_mn, diff;
+	unsigned long ntrn, i;
+
+	ntrn = n - ntst;
+
+	ytrn = malloc(ntrn * sizeof(double));
+	assert(ytrn);
+	ytst = malloc(ntst * sizeof(double));
+	assert(ytst);
+	ytst_gpr = malloc(ntst * sizeof(double));
+	assert(ytst_gpr);
+
+	ytrn_mn = malloc(ntrn * sizeof(double));
+	assert(ytrn_mn);
+	ytst_mn = malloc(ntst * sizeof(double));
+	assert(ytst_mn);
+
+	xtrn = malloc(ntrn * dim * sizeof(double));
+	assert(xtrn);
+	xtst = malloc(ntst * dim * sizeof(double));
+	assert(xtst);
+
+	get_subsample_cv_holdout(ytst_mn, xtst, ntst, ytrn_mn, xtrn, ntrn, y_mn, x, n, dim, k);
+
+	get_subsample_cv_holdout(ytst, xtst, ntst, ytrn, xtrn, ntrn, y, x, n, dim, k);
+
+	gpr_interpolate_mean(xtst, ytst_gpr, ytst_mn, ntst, xtrn, ytrn, ytrn_mn, ntrn, dim, hp, nhp,
+			     NULL, 0);
+
+	for (i = 0; i < ntst; i++) {
+
+		diff = ytst[i] - ytst_gpr[i];
+		cv_rmse_rel[i] = sqrt(diff * diff) / fabs(ytst[i]);
+	}
+
+	free(xtrn);
+	free(xtst);
+	free(ytrn);
+	free(ytst);
+	free(ytrn_mn);
+	free(ytst_mn);
+	free(ytst_gpr);
+}
+
+void get_gpr_cv_holdout_rmse_mean(double *cv_rmse_rel, const double *x, const double *y,
+				  const double *y_mn, unsigned long n, unsigned int dim, double *hp,
+				  unsigned long nhp, unsigned long ntst, unsigned long nbtch)
+{
+	unsigned long k;
+
+	assert(n % ntst == 0);
+
+	for (k = 0; k < nbtch; k++) {
+
+		get_gpr_cv_holdout_rmse_batch_mean(k, &cv_rmse_rel[k * ntst], ntst, x, y, y_mn, n,
+						   dim, hp, nhp);
+	}
+}
+
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed)
 {
