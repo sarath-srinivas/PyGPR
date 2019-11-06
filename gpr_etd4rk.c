@@ -32,7 +32,8 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	fb3 = &work[8 * m];
 
 	if (cv_step) {
-		cv_step[0] = get_gpr_cv_holdout(x, y0, m, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[0]
+		    = get_gpr_cv_holdout(x, y0, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(f0, t0, y0, m, param);
@@ -42,7 +43,8 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	}
 
 	if (cv_step) {
-		cv_step[1] = get_gpr_cv_holdout(x, a, m, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[1]
+		    = get_gpr_cv_holdout(x, a, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(fa, t0 + 0.5 * h, a, m, param);
@@ -53,8 +55,10 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	}
 
 	if (cv_step) {
-		cv_step[2] = get_gpr_cv_holdout(x, b, m, dim, hparam, nhparam, ntst, nbtch, est);
-		cv_step[3] = get_gpr_cv_holdout(x, b3, m, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[2]
+		    = get_gpr_cv_holdout(x, b, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[3]
+		    = get_gpr_cv_holdout(x, b3, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(fb, t0 + 0.5 * h, b, m, param);
@@ -65,7 +69,8 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	}
 
 	if (cv_step) {
-		cv_step[4] = get_gpr_cv_holdout(x, c, m, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[4]
+		    = get_gpr_cv_holdout(x, c, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(fc, t0 + h, c, m, param);
@@ -78,7 +83,8 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	}
 
 	if (cv_step) {
-		cv_step[5] = get_gpr_cv_holdout(x, y, m, dim, hparam, nhparam, ntst, nbtch, est);
+		cv_step[5]
+		    = get_gpr_cv_holdout(x, y, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 }
 
@@ -126,7 +132,7 @@ void gpr_etd34rk_vec(double t0, double tn, double h, double *y0, unsigned long n
 	for (t = t0; t <= tn; t += h) {
 		fprintf(stderr, "\r t = %+.15E  h = %.15E", t, h);
 
-		cv[j++] = get_gpr_cv_holdout(x, y0, n, dim, hparam, nhparam, ntst, nbtch, est);
+		cv[j++] = get_gpr_cv_holdout(x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch, est);
 
 		gpr_etd34rk_vec_step(t, n, y0, h, J, exp_jh2, enf_jh2, enf_jh, alp, bet, gam, fn,
 				     param, dy, eg, x, dim, hparam, nhparam,
