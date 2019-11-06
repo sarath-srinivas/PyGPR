@@ -247,7 +247,7 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 		gsl_vector_set(pv, i, p[i]);
 	}
 
-	T = gsl_multimin_fdfminimizer_conjugate_fr;
+	T = gsl_multimin_fdfminimizer_conjugate_pr;
 	s = gsl_multimin_fdfminimizer_alloc(T, np);
 
 	step = 1E-2;
