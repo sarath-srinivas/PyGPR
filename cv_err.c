@@ -7,21 +7,36 @@
 #include <atlas/lapack.h>
 #include "lib_gpr.h"
 
-double get_rmse_rel(const double *y, const double *y_pred, unsigned long n)
+double sin_nd(const double *x, unsigned int dim)
 {
-	double rel_diff, rmse_rel;
-	unsigned long i;
+	unsigned int i;
+	double y;
 
-	rmse_rel = 0;
-	for (i = 0; i < n; i++) {
-
-		rel_diff = (y[i] - y_pred[i]) / fabs(y[i]);
-		rmse_rel += rel_diff;
+	y = 0;
+	for (i = 0; i < dim; i++) {
+		y += (1.0 + i) / 2.0 * x[i];
 	}
 
-	rmse_rel /= n;
+	y = sin(y);
 
-	return rmse_rel;
+	return y;
+}
+
+double get_chi_sq(const double *y, const double *y_pred, const double *covar, unsigned long n)
+{
+	double rel_diff, chi_sq;
+	unsigned long i;
+
+	chi_sq = 0;
+	for (i = 0; i < n; i++) {
+
+		rel_diff = (y[i] - y_pred[i]);
+		chi_sq += rel_diff * rel_diff / covar[n * i + i];
+	}
+
+	chi_sq /= 1;
+
+	return chi_sq;
 }
 
 double get_mhlbs_dist(const double *y, const double *y_pred, const double *covar, unsigned long n)
@@ -57,6 +72,8 @@ double get_mhlbs_dist(const double *y, const double *y_pred, const double *covar
 	assert(info == 0);
 
 	mhlbs_dist = ddot_(&N, diff, &INCX, kdiff, &INCY);
+
+	mhlbs_dist /= 1;
 
 	return mhlbs_dist;
 }
@@ -124,19 +141,15 @@ double get_gpr_cv_holdout_batch(unsigned long k, unsigned long ntst, const doubl
 
 	get_subsample_cv_holdout(ytst, xtst, ntst, ytrn, xtrn, ntrn, y, x, n, dim, k);
 
+	gpr_interpolate(xtst, ytst_gpr, ntst, xtrn, ytrn, ntrn, dim, hp, nhp, covar, 0);
+
 	cv_holdout = -1;
 
-	if (est == REL_RMSE) {
-
-		gpr_interpolate(xtst, ytst_gpr, ntst, xtrn, ytrn, ntrn, dim, hp, nhp, NULL, 0);
-
-		cv_holdout = get_rmse_rel(ytst, ytst_gpr, ntst);
+	if (est == CHI_SQ) {
+		cv_holdout = get_chi_sq(ytst, ytst_gpr, covar, ntst);
 	}
 
 	if (est == MAHALANOBIS) {
-
-		gpr_interpolate(xtst, ytst_gpr, ntst, xtrn, ytrn, ntrn, dim, hp, nhp, covar, 0);
-
 		cv_holdout = get_mhlbs_dist(ytst, ytst_gpr, covar, ntst);
 	}
 
@@ -208,19 +221,13 @@ double get_gpr_mean_cv_holdout_batch(unsigned long k, unsigned long ntst, const 
 
 	cv_holdout = -1;
 
-	if (est == REL_RMSE) {
-
-		gpr_interpolate_mean(xtst, ytst_gpr, ytst_mn, ntst, xtrn, ytrn, ytrn_mn, ntrn, dim,
-				     hp, nhp, NULL, 0);
-
-		cv_holdout = get_rmse_rel(ytst, ytst_gpr, ntst);
+	gpr_interpolate_mean(xtst, ytst_gpr, ytst_mn, ntst, xtrn, ytrn, ytrn_mn, ntrn, dim, hp, nhp,
+			     covar, 0);
+	if (est == CHI_SQ) {
+		cv_holdout = get_chi_sq(ytst, ytst_gpr, covar, ntst);
 	}
 
 	if (est == MAHALANOBIS) {
-
-		gpr_interpolate_mean(xtst, ytst_gpr, ytst_mn, ntst, xtrn, ytrn, ytrn_mn, ntrn, dim,
-				     hp, nhp, covar, 0);
-
 		cv_holdout = get_mhlbs_dist(ytst, ytst_gpr, covar, ntst);
 	}
 
@@ -330,4 +337,54 @@ void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned
 	free(ytst);
 	free(xtrn);
 	free(ytrn);
+}
+
+double test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long ntst,
+			       unsigned long nbtch, enum estimator est, int seed)
+{
+	double cv, *y, *x, *st, *en, *hpar, *covar;
+	unsigned long nhpar, i;
+	dsfmt_t drng;
+
+	y = malloc(n * sizeof(double));
+	assert(y);
+	x = malloc(n * dim * sizeof(double));
+	assert(x);
+
+	st = malloc(dim * sizeof(double));
+	assert(st);
+	en = malloc(dim * sizeof(double));
+	assert(en);
+
+	nhpar = dim + 1;
+
+	hpar = malloc(nhpar * sizeof(double));
+	assert(hpar);
+
+	for (i = 0; i < dim; i++) {
+		st[i] = 0.01;
+		en[i] = 3.0;
+	}
+
+	fill_random(x, n, dim, st, en, seed);
+
+	for (i = 0; i < n; i++) {
+		y[i] = sin_nd(&x[dim * i], dim);
+	}
+
+	for (i = 0; i < nhpar; i++) {
+		hpar[i] = 1.0;
+	}
+
+	get_hyper_param_ard(hpar, nhpar, x, y, n, dim);
+
+	cv = get_gpr_cv_holdout(x, y, n, dim, hpar, nhpar, ntst, nbtch, est);
+
+	free(hpar);
+	free(en);
+	free(st);
+	free(x);
+	free(y);
+
+	return cv;
 }
