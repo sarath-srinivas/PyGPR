@@ -47,17 +47,18 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
 
 /* CROSS VALIDATION */
+double get_rel_rmse(const double *y, const double *y_pred, unsigned long n);
 double get_chi_sq(const double *y, const double *y_pred, const double *covar, unsigned long n);
 double get_mhlbs_dist(const double *y, const double *y_pred, const double *covar, unsigned long n);
 void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, double *ytrn,
 			      double *xtrn, unsigned long ntrn, const double *y, const double *x,
 			      unsigned long n, unsigned int dim, unsigned long k);
-double get_gpr_cv_holdout_batch(unsigned long k, unsigned long ntst, const double *x,
-				const double *y, unsigned long n, unsigned int dim, double *hp,
-				unsigned long nhp, const enum estimator est);
-double get_gpr_cv_holdout(const double *x, const double *y, unsigned long n, unsigned int dim,
-			  double *hp, unsigned long nhp, unsigned long ntst, unsigned long nbtch,
-			  enum estimator est);
+void get_gpr_cv_holdout_batch(double *cv, unsigned long k, unsigned long ntst, const double *x,
+			      const double *y, unsigned long n, unsigned int dim, double *hp,
+			      unsigned long nhp, const enum estimator est);
+void get_gpr_cv_holdout(double *cv_btch, const double *x, const double *y, unsigned long n,
+			unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst,
+			unsigned long nbtch, enum estimator est);
 double get_gpr_mean_cv_holdout_batch(unsigned long k, unsigned long ntst, const double *x,
 				     const double *y, const double *y_mn, unsigned long n,
 				     unsigned int dim, double *hp, unsigned long nhp,
@@ -96,5 +97,5 @@ void gpr_etd34rk_vec(double t0, double tn, double h, double *y0, unsigned long n
 /* TESTS */
 void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned long k,
 				   unsigned int dim, int seed);
-double test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long ntst,
-			       unsigned long nbtch, enum estimator est, int seed);
+void test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long ntst,
+			     unsigned long nbtch, enum estimator est, int seed);

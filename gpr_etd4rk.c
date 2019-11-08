@@ -17,7 +17,8 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 			  unsigned long nwork)
 {
 	double *a, *b, *b3, *c, *f0, *fa, *fb, *fc, *fb3;
-	unsigned long i;
+	unsigned long i, n;
+	n = m / 2;
 
 	assert(work);
 	assert(nwork == get_work_sz_etd34rk(m));
@@ -31,20 +32,10 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	b3 = &work[7 * m];
 	fb3 = &work[8 * m];
 
-	if (cv_step) {
-		cv_step[0]
-		    = get_gpr_cv_holdout(x, y0, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
-	}
-
 	fun(f0, t0, y0, m, param);
 
 	for (i = 0; i < m; i++) {
 		a[i] = y0[i] * exp_hj2[i] + 0.5 * h * enf_jh2[i] * f0[i];
-	}
-
-	if (cv_step) {
-		cv_step[1]
-		    = get_gpr_cv_holdout(x, a, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(fa, t0 + 0.5 * h, a, m, param);
@@ -54,23 +45,11 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 		b3[i] = y0[i] * exp_hj2[i] * exp_hj2[i] + h * enf_jh[i] * (2 * fa[i] - f0[i]);
 	}
 
-	if (cv_step) {
-		cv_step[2]
-		    = get_gpr_cv_holdout(x, b, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
-		cv_step[3]
-		    = get_gpr_cv_holdout(x, b3, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
-	}
-
 	fun(fb, t0 + 0.5 * h, b, m, param);
 	fun(fb3, t0 + h, b3, m, param);
 
 	for (i = 0; i < m; i++) {
 		c[i] = a[i] * exp_hj2[i] + 0.5 * h * enf_jh2[i] * (2 * fb[i] - f0[i]);
-	}
-
-	if (cv_step) {
-		cv_step[4]
-		    = get_gpr_cv_holdout(x, c, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(fc, t0 + h, c, m, param);
@@ -83,8 +62,12 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 	}
 
 	if (cv_step) {
-		cv_step[5]
-		    = get_gpr_cv_holdout(x, y, m / 2, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, y0, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, a, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, b, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, b3, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, c, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, y, n, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 }
 
@@ -132,11 +115,12 @@ void gpr_etd34rk_vec(double t0, double tn, double h, double *y0, unsigned long n
 	for (t = t0; t <= tn; t += h) {
 		fprintf(stderr, "\r t = %+.15E  h = %.15E", t, h);
 
-		cv[j++] = get_gpr_cv_holdout(x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv[3 * (j++)], x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch,
+				   est);
 
 		gpr_etd34rk_vec_step(t, n, y0, h, J, exp_jh2, enf_jh2, enf_jh, alp, bet, gam, fn,
-				     param, dy, eg, x, dim, hparam, nhparam,
-				     &cv_step[netd4rk * (j++)], ntst, nbtch, est, work, nwork);
+				     param, dy, eg, x, dim, hparam, nhparam, NULL, ntst, nbtch, est,
+				     work, nwork);
 
 		for (i = 0; i < n; i++) {
 			y0[i] = dy[i];

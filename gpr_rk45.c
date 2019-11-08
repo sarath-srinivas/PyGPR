@@ -42,18 +42,10 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 		t[i] = t0 + h * c[i];
 	}
 
-	if (cv_step) {
-		cv_step[0] = get_gpr_cv_holdout(x, y0, m, dim, hparam, nhparam, ntst, nbtch, est);
-	}
-
 	fun(k0, t0, y0, m, param);
 
 	for (i = 0; i < m; i++) {
 		y1[i] = y0[i] + h * a[1][0] * k0[i];
-	}
-
-	if (cv_step) {
-		cv_step[1] = get_gpr_cv_holdout(x, y1, m, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(k1, t[1], y1, m, param);
@@ -62,18 +54,10 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 		y2[i] = y0[i] + h * (a[2][0] * k0[i] + a[2][1] * k1[i]);
 	}
 
-	if (cv_step) {
-		cv_step[2] = get_gpr_cv_holdout(x, y2, m, dim, hparam, nhparam, ntst, nbtch, est);
-	}
-
 	fun(k2, t[2], y2, m, param);
 
 	for (i = 0; i < m; i++) {
 		y3[i] = y0[i] + h * (a[3][0] * k0[i] + a[3][1] * k1[i] + a[3][2] * k2[i]);
-	}
-
-	if (cv_step) {
-		cv_step[3] = get_gpr_cv_holdout(x, y3, m, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(k3, t[3], y3, m, param);
@@ -84,10 +68,6 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 		      + h * (a[4][0] * k0[i] + a[4][1] * k1[i] + a[4][2] * k2[i] + a[4][3] * k3[i]);
 	}
 
-	if (cv_step) {
-		cv_step[4] = get_gpr_cv_holdout(x, y4, m, dim, hparam, nhparam, ntst, nbtch, est);
-	}
-
 	fun(k4, t[4], y4, m, param);
 
 	for (i = 0; i < m; i++) {
@@ -95,10 +75,6 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 			+ h
 			      * (a[5][0] * k0[i] + a[5][1] * k1[i] + a[5][2] * k2[i]
 				 + a[5][3] * k3[i] + a[5][4] * k4[i]);
-	}
-
-	if (cv_step) {
-		cv_step[5] = get_gpr_cv_holdout(x, y5, m, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 
 	fun(k5, t[5], y5, m, param);
@@ -114,7 +90,13 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 	}
 
 	if (cv_step) {
-		cv_step[6] = get_gpr_cv_holdout(x, y, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[0], x, y0, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[3], x, y1, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[6], x, y2, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[9], x, y3, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[12], x, y4, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[15], x, y5, m, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[18], x, y, m, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 }
 
@@ -146,10 +128,11 @@ void gpr_rk45vec(double t0, double tn, double h, double *y0, unsigned long n,
 
 		fprintf(stderr, "\r t = %+.15E  h = %.15E", t, h);
 
-		cv[j++] = get_gpr_cv_holdout(x, y0, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv[3 * (j++)], x, y0, n, dim, hparam, nhparam, ntst, nbtch,
+				   est);
 
-		gpr_rk45vec_step(t, n, y0, h, fun, param, dy, eg, x, dim, hparam, nhparam,
-				 &cv_step[nrk45 * (j++)], ntst, nbtch, est, work, nwork);
+		gpr_rk45vec_step(t, n, y0, h, fun, param, dy, eg, x, dim, hparam, nhparam, NULL,
+				 ntst, nbtch, est, work, nwork);
 
 		for (i = 0; i < n; i++) {
 			y0[i] = dy[i];

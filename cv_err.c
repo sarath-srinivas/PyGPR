@@ -22,6 +22,23 @@ double sin_nd(const double *x, unsigned int dim)
 	return y;
 }
 
+double get_rel_rmse(const double *y, const double *y_pred, unsigned long n)
+{
+	double rel_diff, rel_rmse;
+	unsigned long i;
+
+	rel_rmse = 0;
+	for (i = 0; i < n; i++) {
+
+		rel_diff = (y[i] - y_pred[i]) / y[i];
+		rel_rmse += rel_diff * rel_diff;
+	}
+
+	rel_rmse = sqrt(rel_rmse) / n;
+
+	return rel_rmse;
+}
+
 double get_chi_sq(const double *y, const double *y_pred, const double *covar, unsigned long n)
 {
 	double rel_diff, chi_sq;
@@ -115,9 +132,9 @@ void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, do
 
 /* GPR WITHOUT MEAN */
 
-double get_gpr_cv_holdout_batch(unsigned long k, unsigned long ntst, const double *x,
-				const double *y, unsigned long n, unsigned int dim, double *hp,
-				unsigned long nhp, const enum estimator est)
+void get_gpr_cv_holdout_batch(double *cv, unsigned long k, unsigned long ntst, const double *x,
+			      const double *y, unsigned long n, unsigned int dim, double *hp,
+			      unsigned long nhp, const enum estimator est)
 {
 	double *ytrn, *xtrn, *ytst, *ytst_gpr, *xtst, diff, *covar, cv_holdout;
 	unsigned long ntrn, i;
@@ -143,15 +160,9 @@ double get_gpr_cv_holdout_batch(unsigned long k, unsigned long ntst, const doubl
 
 	gpr_interpolate(xtst, ytst_gpr, ntst, xtrn, ytrn, ntrn, dim, hp, nhp, covar, 0);
 
-	cv_holdout = -1;
-
-	if (est == CHI_SQ) {
-		cv_holdout = get_chi_sq(ytst, ytst_gpr, covar, ntst);
-	}
-
-	if (est == MAHALANOBIS) {
-		cv_holdout = get_mhlbs_dist(ytst, ytst_gpr, covar, ntst);
-	}
+	cv[0] = get_rel_rmse(ytst, ytst_gpr, ntst);
+	cv[1] = get_chi_sq(ytst, ytst_gpr, covar, ntst);
+	cv[2] = get_mhlbs_dist(ytst, ytst_gpr, covar, ntst);
 
 	free(xtrn);
 	free(xtst);
@@ -159,28 +170,32 @@ double get_gpr_cv_holdout_batch(unsigned long k, unsigned long ntst, const doubl
 	free(ytst);
 	free(ytst_gpr);
 	free(covar);
-
-	return cv_holdout;
 }
 
-double get_gpr_cv_holdout(const double *x, const double *y, unsigned long n, unsigned int dim,
-			  double *hp, unsigned long nhp, unsigned long ntst, unsigned long nbtch,
-			  enum estimator est)
+void get_gpr_cv_holdout(double *cv_btch, const double *x, const double *y, unsigned long n,
+			unsigned int dim, double *hp, unsigned long nhp, unsigned long ntst,
+			unsigned long nbtch, enum estimator est)
 {
-	double cv_btch_avg;
+	double cv[3];
 	unsigned long k;
 
 	assert(n % ntst == 0);
 
-	cv_btch_avg = 0;
+	cv[0] = 0;
+	cv[1] = 0;
+	cv[2] = 0;
 	for (k = 0; k < nbtch; k++) {
 
-		cv_btch_avg += get_gpr_cv_holdout_batch(k, ntst, x, y, n, dim, hp, nhp, est);
+		get_gpr_cv_holdout_batch(cv, k, ntst, x, y, n, dim, hp, nhp, est);
+
+		cv_btch[0] += cv[0];
+		cv_btch[1] += cv[1];
+		cv_btch[2] += cv[2];
 	}
 
-	cv_btch_avg /= nbtch;
-
-	return cv_btch_avg;
+	cv_btch[0] /= nbtch;
+	cv_btch[1] /= nbtch;
+	cv_btch[2] /= nbtch;
 }
 
 /* GPR WITH MEAN */
@@ -339,10 +354,10 @@ void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned
 	free(ytrn);
 }
 
-double test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long ntst,
-			       unsigned long nbtch, enum estimator est, int seed)
+void test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long ntst,
+			     unsigned long nbtch, enum estimator est, int seed)
 {
-	double cv, *y, *x, *st, *en, *hpar, *covar;
+	double cv[3], *y, *x, *st, *en, *hpar, *covar;
 	unsigned long nhpar, i;
 	dsfmt_t drng;
 
@@ -378,7 +393,7 @@ double test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long 
 
 	get_hyper_param_ard(hpar, nhpar, x, y, n, dim);
 
-	cv = get_gpr_cv_holdout(x, y, n, dim, hpar, nhpar, ntst, nbtch, est);
+	get_gpr_cv_holdout(cv, x, y, n, dim, hpar, nhpar, ntst, nbtch, est);
 
 	free(hpar);
 	free(en);
@@ -386,5 +401,7 @@ double test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long 
 	free(x);
 	free(y);
 
-	return cv;
+	printf("%+.15E REL_RMSE\n", cv[0]);
+	printf("%+.15E CHI_SQ\n", cv[1]);
+	printf("%+.15E MAHALANABIS\n", cv[2]);
 }
