@@ -2,12 +2,15 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <omp.h>
 #include <lib_rng/lib_rng.h>
 #include <atlas/blas.h>
 #include "lib_gpr.h"
 
-void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-		    unsigned long dim, const double *p, int npar)
+#define CHUNK (100)
+
+void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,
+		    unsigned long nxp, unsigned long dim, const double *p, int npar)
 {
 	double sig_y, l, l2, r2, x_xp;
 	unsigned long i, j, k;
@@ -16,17 +19,22 @@ void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned lon
 
 	sig_y = p[dim];
 
-	for (i = 0; i < nx; i++)
-		for (j = 0; j < nxp; j++) {
+#pragma omp parallel
+	{
+#pragma omp parallel for collapse(2) default(none)                                                 \
+    shared(nx, nxp, dim, x, xp, p, krn, sig_y) private(i, j, k, r2, x_xp) schedule(dynamic, CHUNK)
+		for (i = 0; i < nx; i++)
+			for (j = 0; j < nxp; j++) {
 
-			r2 = 0;
-			for (k = 0; k < dim; k++) {
-				x_xp = x[dim * i + k] - xp[dim * j + k];
-				r2 += x_xp * x_xp / (p[k] * p[k]);
+				r2 = 0;
+				for (k = 0; k < dim; k++) {
+					x_xp = x[dim * i + k] - xp[dim * j + k];
+					r2 += x_xp * x_xp / (p[k] * p[k]);
+				}
+
+				krn[i * nxp + j] = sig_y * sig_y * exp(-r2);
 			}
-
-			krn[i * nxp + j] = sig_y * sig_y * exp(-r2);
-		}
+	}
 }
 
 void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsigned long nx,
@@ -45,6 +53,8 @@ void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsi
 
 		ld3 = p[k] * p[k] * p[k];
 
+#pragma omp parallel for collapse(2) default(none)                                                 \
+    shared(nx, x, k, dim, dK, ld3, kxx) private(i, j, xij_d) schedule(dynamic, CHUNK)
 		for (i = 0; i < nx; ++i) {
 			for (j = 0; j < nx; ++j) {
 
@@ -57,14 +67,17 @@ void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsi
 
 		/* dK/dsigma */
 
+#pragma omp parallel for default(none) shared(nx2, p, k, dK, kxx) private(i)                       \
+    schedule(dynamic, CHUNK)
 		for (i = 0; i < nx2; i++) {
 			dK[i] = (2.0 / p[k]) * kxx[i];
 		}
 	}
 }
 
-void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-		      unsigned long dim, const double *par, int npar, const double *hpar, int nhpar)
+void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx,
+		      unsigned long nxp, unsigned long dim, const double *par, int npar,
+		      const double *hpar, int nhpar)
 {
 	double sig_y, l, l2, r2, x_xp, alph;
 	unsigned long i, j, k;
@@ -91,7 +104,8 @@ void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned l
 }
 
 /* TESTS */
-double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps, int seed)
+double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps,
+			    int seed)
 {
 	double *x, *kxx, *kxx_eps, *dk, *dk_num, *p, xmax, err_norm;
 	unsigned int np;
