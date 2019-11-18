@@ -73,7 +73,7 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 		      void *param, double *y, double *e, const double *x, unsigned int dim,
 		      double *hparam, unsigned int nhparam, double *cv_step, unsigned long ntst,
 		      unsigned long nbtch, enum estimator est, double *work, unsigned long nwork);
-void gpr_rk45vec(double t0, double tn, double h, double *y0, unsigned long n,
+void gpr_rk45vec(double t0, double h, unsigned long nstep, double *y0, unsigned long n,
 		 void fun(double *f, double t, double *u1, unsigned long mn, void *param),
 		 double tol, void *param, double *eg, const double *x, unsigned int dim,
 		 double *hparam, unsigned int nhparam, double *cv_step, double *cv,

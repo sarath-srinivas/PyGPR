@@ -107,7 +107,7 @@ void gpr_rk45vec_step(double t0, unsigned long m, double *y0, double h,
 	}
 }
 
-void gpr_rk45vec(double t0, double tn, double h, double *y0, unsigned long n,
+void gpr_rk45vec(double t0, double h, unsigned long nstep, double *y0, unsigned long n,
 		 void fun(double *f, double t, double *u1, unsigned long mn, void *param),
 		 double tol, void *param, double *eg, const double *x, unsigned int dim,
 		 double *hparam, unsigned int nhparam, double *cv_step, double *cv,
@@ -131,9 +131,10 @@ void gpr_rk45vec(double t0, double tn, double h, double *y0, unsigned long n,
 	}
 
 	j = 0;
-	for (t = t0; t <= tn; t += h) {
+	for (i = 0; i < nstep; i++) {
 
-		fprintf(stderr, "\r t = %+.15E  h = %.15E", t, h);
+		t = t0 + i * h;
+		fprintf(stderr, "t = %+.15E  h = %.15E\n", t, h);
 
 		get_gpr_cv_holdout(&cv[3 * (j++)], x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch,
 				   est);
