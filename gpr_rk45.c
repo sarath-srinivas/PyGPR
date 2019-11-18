@@ -114,7 +114,7 @@ void gpr_rk45vec(double t0, double h, unsigned long nstep, double *y0, unsigned 
 		 unsigned long ntst, unsigned long nbtch, enum estimator est)
 {
 	double *dy, t, *work;
-	unsigned long i, j, nwork;
+	unsigned long i, j, l, nwork;
 	unsigned int nrk45;
 
 	nrk45 = 7;
@@ -131,12 +131,12 @@ void gpr_rk45vec(double t0, double h, unsigned long nstep, double *y0, unsigned 
 	}
 
 	j = 0;
-	for (i = 0; i < nstep; i++) {
+	for (l = 0; l < nstep; l++) {
 
-		t = t0 + i * h;
+		t = t0 + l * h;
 		fprintf(stderr, "t = %+.15E  h = %.15E\n", t, h);
 
-		get_gpr_cv_holdout(&cv[3 * (j++)], x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch,
+		get_gpr_cv_holdout(&cv[3 * l], x, y0, n / 2, dim, hparam, nhparam, ntst, nbtch,
 				   est);
 
 		gpr_rk45vec_step(t, n, y0, h, fun, param, dy, eg, x, dim, hparam, nhparam, NULL,
