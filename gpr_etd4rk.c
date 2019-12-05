@@ -63,11 +63,11 @@ void gpr_etd34rk_vec_step(double t0, unsigned long m, double *y0, double h, doub
 
 	if (cv_step) {
 		get_gpr_cv_holdout(&cv_step[0], x, y0, n, dim, hparam, nhparam, ntst, nbtch, est);
-		get_gpr_cv_holdout(&cv_step[0], x, a, n, dim, hparam, nhparam, ntst, nbtch, est);
-		get_gpr_cv_holdout(&cv_step[0], x, b, n, dim, hparam, nhparam, ntst, nbtch, est);
-		get_gpr_cv_holdout(&cv_step[0], x, b3, n, dim, hparam, nhparam, ntst, nbtch, est);
-		get_gpr_cv_holdout(&cv_step[0], x, c, n, dim, hparam, nhparam, ntst, nbtch, est);
-		get_gpr_cv_holdout(&cv_step[0], x, y, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[3], x, a, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[6], x, b, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[9], x, b3, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[12], x, c, n, dim, hparam, nhparam, ntst, nbtch, est);
+		get_gpr_cv_holdout(&cv_step[15], x, y, n, dim, hparam, nhparam, ntst, nbtch, est);
 	}
 }
 
