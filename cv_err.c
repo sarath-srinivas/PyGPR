@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <math.h>
 #include <lib_rng/lib_rng.h>
-#include <atlas/blas.h>
-#include <atlas/lapack.h>
+#include <blas/blas.h>
+#include <blas/lapack.h>
 #include "lib_gpr.h"
 
 double sin_nd(const double *x, unsigned int dim)

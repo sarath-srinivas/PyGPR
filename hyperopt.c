@@ -4,8 +4,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <atlas/lapack.h>
-#include <atlas/blas.h>
+#include <blas/lapack.h>
+#include <blas/blas.h>
 #include <lib_rng/lib_rng.h>
 #include "lib_gpr.h"
 

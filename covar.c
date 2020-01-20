@@ -4,7 +4,7 @@
 #include <math.h>
 #include <omp.h>
 #include <lib_rng/lib_rng.h>
-#include <atlas/blas.h>
+#include <blas/blas.h>
 #include "lib_gpr.h"
 
 #define CHUNK (100)
