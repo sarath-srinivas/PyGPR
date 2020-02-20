@@ -59,7 +59,7 @@ void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsi
 			for (j = 0; j < nx; ++j) {
 
 				xij_d = x[i * dim + k] - x[j * dim + k];
-				dK[i * nx + j] = 2.0 * (xij_d * xij_d * pk) * kxx[i * nx + j];
+				dK[i * nx + j] = -2.0 * (xij_d * xij_d * pk) * kxx[i * nx + j];
 			}
 		}
 
