@@ -29,7 +29,7 @@ void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned lon
 				r2 = 0;
 				for (k = 0; k < dim; k++) {
 					x_xp = x[dim * i + k] - xp[dim * j + k];
-					r2 += x_xp * x_xp / (p[k] * p[k]);
+					r2 += x_xp * x_xp * (p[k] * p[k]);
 				}
 
 				krn[i * nxp + j] = sig_y * sig_y * exp(-r2);
@@ -40,7 +40,7 @@ void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned lon
 void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsigned long nx,
 		     unsigned int dim, const double *p, int np)
 {
-	double ld3, xij_d;
+	double pk, xij_d;
 	unsigned long i, j, nx2;
 
 	nx2 = nx * nx;
@@ -51,15 +51,15 @@ void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsi
 
 		/* dK/dl_k */
 
-		ld3 = p[k] * p[k] * p[k];
+		pk = p[k];
 
 #pragma omp parallel for collapse(2) default(none)                                                 \
-    shared(nx, x, k, dim, dK, ld3, kxx) private(i, j, xij_d) schedule(dynamic, CHUNK)
+    shared(nx, x, k, dim, dK, pk, kxx) private(i, j, xij_d) schedule(dynamic, CHUNK)
 		for (i = 0; i < nx; ++i) {
 			for (j = 0; j < nx; ++j) {
 
 				xij_d = x[i * dim + k] - x[j * dim + k];
-				dK[i * nx + j] = 2.0 * (xij_d * xij_d / ld3) * kxx[i * nx + j];
+				dK[i * nx + j] = 2.0 * (xij_d * xij_d * pk) * kxx[i * nx + j];
 			}
 		}
 
