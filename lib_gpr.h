@@ -30,6 +30,7 @@ void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double
 void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
 			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
 			  unsigned int npar, double *var_yp, int is_opt);
+void sample_gp(double *y, const double *mn, const double *kxx, unsigned long ns, int seed);
 
 /* COVARIANCE FUNCTIONS */
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,

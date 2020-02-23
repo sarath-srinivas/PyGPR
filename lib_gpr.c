@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <blas/lapack.h>
 #include <blas/blas.h>
+#include <lib_rng/lib_rng.h>
 #include "lib_gpr.h"
 
 #define PI (3.14159265358979)
@@ -299,4 +300,46 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 	free(lkrxx);
 	free(krxx);
 	free(krpp);
+}
+
+void sample_gp(double *y, const double *mn, const double *kxx, unsigned long ns, int seed)
+{
+	double *lkxx;
+	unsigned char UPLO, TRA, DIAG;
+	unsigned long i;
+	int N, LDA, INCX, INCY, INFO;
+
+	lkxx = malloc(ns * ns * sizeof(double));
+	assert(lkxx);
+
+	N = ns * ns;
+	INCX = 1;
+	INCY = 1;
+
+	dcopy_(&N, kxx, &INCX, lkxx, &INCY);
+
+	for (i = 0; i < ns; i++) {
+		lkxx[i * ns + i] += 1E-7;
+	}
+
+	UPLO = 'L';
+	N = ns;
+	LDA = ns;
+
+	dpotrf_(&UPLO, &N, lkxx, &LDA, &INFO);
+	assert(INFO == 0);
+
+	fill_normal_rnd(y, ns, seed);
+
+	TRA = 'N';
+	DIAG = 'N';
+	dtrmv_(&UPLO, &TRA, &DIAG, &N, lkxx, &LDA, y, &INCX);
+
+	if (mn) {
+		for (i = 0; i < ns; i++) {
+			y[i] += mn[i];
+		}
+	}
+
+	free(lkxx);
 }
