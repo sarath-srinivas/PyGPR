@@ -117,7 +117,7 @@ void get_asymm_covar_jac(double *dK, unsigned int m, const double *kxx, const do
 
 #pragma omp parallel for default(none) shared(nx2, sig, dK, kxx) private(i) schedule(dynamic, CHUNK)
 		for (i = 0; i < nx2; i++) {
-			dK[i] = 2.0 * sig * kxx[i];
+			dK[i] = (2.0 / sig) * kxx[i];
 		}
 	}
 }
