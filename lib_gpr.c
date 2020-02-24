@@ -237,6 +237,54 @@ void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double
 	free(krpp);
 }
 
+void gpr_interpolate_asymm(double *xp, double *axp, double *yp, unsigned long np, double *x,
+			   double *ax, double *y, unsigned long ns, unsigned int dim, double *p,
+			   unsigned int npar, double *var_yp, int is_opt)
+{
+	double *krxx, *lkrxx, *krpx, *krpp, *wt;
+	int info;
+
+	krxx = malloc(ns * ns * sizeof(double));
+	assert(krxx);
+
+	lkrxx = malloc(ns * ns * sizeof(double));
+	assert(lkrxx);
+
+	krpx = malloc(np * ns * sizeof(double));
+	assert(krpx);
+
+	krpp = malloc(np * np * sizeof(double));
+	assert(krpp);
+
+	wt = malloc(ns * sizeof(double));
+	assert(wt);
+
+	if (is_opt) {
+		get_hyper_param_ard_asymm(p, npar, x, ax, y, ns, dim);
+	}
+
+	get_asymm_covar(krxx, x, x, ax, ax, ns, ns, dim, p, npar);
+
+	get_gpr_weights(wt, lkrxx, krxx, ns, dim, y);
+
+	get_asymm_covar(krpx, xp, x, axp, ax, np, ns, dim, p, npar);
+
+	gpr_predict(yp, wt, krpx, np, ns);
+
+	if (var_yp) {
+
+		get_asymm_covar(krpp, xp, xp, axp, axp, np, np, dim, p, npar);
+
+		get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+	}
+
+	free(wt);
+	free(krpx);
+	free(lkrxx);
+	free(krxx);
+	free(krpp);
+}
+
 void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
 			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
 			  unsigned int npar, double *var_yp, int is_opt)

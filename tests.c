@@ -4,6 +4,20 @@
 #include <math.h>
 #include "lib_gpr.h"
 
+static int verify(double terr, double tol)
+{
+	int ret;
+	if (terr > tol) {
+		ret = 1;
+		printf("T-ERROR: %+.15E TOL: %+.0E TEST FAILED  ***\n\n", terr, tol);
+	} else {
+		ret = 0;
+		printf("T-ERROR: %+.15E TOL: %+.0E TEST PASSED\n\n", terr, tol);
+	}
+
+	return ret;
+}
+
 static void f_2d(const double *x, unsigned long ns, double *y, int fno)
 {
 	double x1, x2;
@@ -27,7 +41,7 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 	unsigned long i;
 
 	dim = 2;
-	npar = 2;
+	npar = 3;
 
 	x = malloc(dim * ns * sizeof(double));
 	assert(x);
@@ -87,4 +101,48 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 	free(var_yp);
 
 	return 0;
+}
+
+void test_lib_gpr(void)
+{
+	unsigned int dim;
+	unsigned long nx, ns;
+
+	dim = 7;
+	nx = 50;
+	ns = 100;
+
+	verify(test_get_dkrn_se_ard(0, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(1, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(2, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(3, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(4, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(5, dim, nx, 1e-6, 343), 1E-6);
+	verify(test_get_dkrn_se_ard(6, dim, nx, 1e-6, 343), 1E-6);
+
+	verify(test_jac_cost_fun_ard(0, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(1, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(2, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(3, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(4, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(5, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard(6, dim, nx, 1e-6, 363), 1E-6);
+
+	verify(test_asymm_covar(dim, nx, ns, 66), 1E-7);
+
+	verify(test_asymm_covar_jac(0, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(1, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(2, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(3, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(4, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(5, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_asymm_covar_jac(6, dim, nx, 1e-6, 363), 1E-6);
+
+	verify(test_jac_cost_fun_ard_asymm(0, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(1, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(2, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(3, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(4, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(5, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_asymm(6, dim, nx, 1e-6, 363), 1E-6);
 }

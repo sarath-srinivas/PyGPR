@@ -113,6 +113,8 @@ double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, 
 	int N, INCX, INCY;
 	dsfmt_t drng;
 
+	printf("test_get_dkrn_se_ard(m = %u, dim = %u, nx = %lu, eps = %.1E):\n", m, dim, nx, eps);
+
 	np = dim + 1;
 	assert(m <= np);
 
@@ -165,6 +167,8 @@ double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, 
 	for (i = 0; i < nx2; i++) {
 		err_norm += (dk_num[i] - dk[i]) * (dk_num[i] - dk[i]);
 	}
+
+	err_norm /= nx2;
 
 	if (DEBUG == 1) {
 		for (i = 0; i < nx2; i++) {
