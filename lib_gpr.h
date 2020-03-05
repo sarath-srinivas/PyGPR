@@ -30,11 +30,6 @@ double get_log_likelihood(const double *wt, const double *y, unsigned long ns,
 			  const double *krn_chd, double *ret);
 void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const double *krn_chd,
 		     unsigned long np, unsigned long ns);
-void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
-void get_hyper_param_ard_asymm(double *p, int np, double *x, double *ax, double *y,
-			       unsigned long ns, int dim);
-void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
-			       unsigned long nsub, double lrate, int seed);
 void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double *y,
 		     unsigned long ns, unsigned int dim, double *p, unsigned int npar,
 		     double *var_yp, int is_opt);
@@ -45,6 +40,16 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
 			  unsigned int npar, double *var_yp, int is_opt);
 void sample_gp(double *y, const double *mn, const double *kxx, unsigned long ns, int seed);
+
+/* HYPERPARAM OPTIMIZATION */
+double get_f(const double *hp, unsigned long nhp, void *data);
+void get_f_jac(double *f, double *jac, const double *hp, unsigned long nhp, void *data);
+void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
+void get_hyper_param_ard_asymm(double *p, int np, double *x, double *ax, double *y,
+			       unsigned long ns, int dim);
+void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
+			       unsigned long nsub, double lrate, int seed);
+void update_hpr_prm(double *hp, unsigned long nhp, double h, void *dat);
 
 /* COVARIANCE FUNCTIONS */
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,

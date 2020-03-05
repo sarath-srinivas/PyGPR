@@ -282,6 +282,51 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 	free(gp);
 }
 
+double get_f(const double *hp, unsigned long nhp, void *data)
+{
+
+	double f;
+	gsl_vector *gsl_hp;
+	unsigned long i;
+
+	gsl_hp = gsl_vector_alloc(nhp);
+	assert(gsl_hp);
+
+	for (i = 0; i < nhp; i++) {
+		gsl_vector_set(gsl_hp, i, hp[i]);
+	}
+
+	f = cost_fun_ard(gsl_hp, data);
+
+	gsl_vector_free(gsl_hp);
+
+	return f;
+}
+
+void get_f_jac(double *f, double *jac, const double *hp, unsigned long nhp, void *data)
+{
+	gsl_vector *gsl_hp, *gsl_jac;
+	unsigned long i;
+
+	gsl_hp = gsl_vector_alloc(nhp);
+	assert(gsl_hp);
+	gsl_jac = gsl_vector_alloc(nhp);
+	assert(gsl_jac);
+
+	for (i = 0; i < nhp; i++) {
+		gsl_vector_set(gsl_hp, i, hp[i]);
+	}
+
+	fdf_cost_fun_ard(gsl_hp, data, f, gsl_jac);
+
+	for (i = 0; i < nhp; i++) {
+		jac[i] = gsl_vector_get(gsl_jac, i);
+	}
+
+	gsl_vector_free(gsl_hp);
+	gsl_vector_free(gsl_jac);
+}
+
 void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
 			       unsigned long nsub, double lrate, int seed)
 {
