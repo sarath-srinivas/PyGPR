@@ -36,9 +36,11 @@ static void f_2d(const double *x, unsigned long ns, double *y, int fno)
 
 double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed)
 {
-	double *x, *xp, *y, *yp, *yt, *p, *var_yp;
+	double *x, *xp, *y, *yp, *yt, *p, *var_yp, err;
 	unsigned int dim, npar;
-	unsigned long i;
+	unsigned long i, j;
+
+	printf("test_gpr_interpolate(nke = %lu, nq = %lu):\n", ns, np);
 
 	dim = 2;
 	npar = 3;
@@ -86,10 +88,24 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 
 	gpr_interpolate(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1);
 
+	err = 0;
 	for (i = 0; i < np; i++) {
-		printf("%+.15E %+.15E %+.15E %+.15E %+.15E %+.15E\n", xp[dim * i + 0],
-		       xp[dim * i + 1], yp[i], yt[i], sqrt(var_yp[i * np + i]),
-		       fabs(yp[i] - yt[i]));
+		for (j = 0; j < np; j++) {
+
+			err += fabs(var_yp[i * np + j] - var_yp[j * np + i]);
+
+			if (DEBUG) {
+				printf("%5lu %5lu %+.15E\n", i, j, var_yp[i * np + j]);
+			}
+		}
+	}
+
+	if (DEBUG) {
+		for (i = 0; i < np; i++) {
+			printf("%+.15E %+.15E %+.15E %+.15E %+.15E %+.15E\n", xp[dim * i + 0],
+			       xp[dim * i + 1], yp[i], yt[i], sqrt(var_yp[i * np + i]),
+			       fabs(yp[i] - yt[i]));
+		}
 	}
 
 	free(x);
@@ -100,7 +116,7 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 	free(p);
 	free(var_yp);
 
-	return 0;
+	return err;
 }
 
 void test_lib_gpr(void)
@@ -111,6 +127,8 @@ void test_lib_gpr(void)
 	dim = 7;
 	nx = 50;
 	ns = 100;
+
+	verify(test_gpr_interpolate(10, 100, 1, 34366), 1E-7);
 
 	verify(test_get_dkrn_se_ard(0, dim, nx, 1e-6, 343), 1E-6);
 	verify(test_get_dkrn_se_ard(1, dim, nx, 1e-6, 343), 1E-6);

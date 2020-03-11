@@ -70,13 +70,13 @@ void get_asymm_covar_jac(double *dK, unsigned int m, const double *kxx, const do
 double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps,
 			    int seed);
 double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double eps, int seed);
-double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
 
 double test_asymm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int seed);
 double test_asymm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, double eps,
 			    int seed);
 double test_jac_cost_fun_ard_asymm(int m, unsigned int dim, unsigned long nx, double eps, int seed);
 double test_gpr_interpolate_asymm(unsigned long ns, unsigned long np, int fno, int seed);
+double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
 
 /* CROSS VALIDATION */
 double get_rel_rmse(const double *y, const double *y_pred, unsigned long n);
