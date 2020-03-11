@@ -157,6 +157,12 @@ void get_var_mat_chd(double *var, const double *krnpp, const double *krnp, const
 
 	dsyrk_(&UPLO, &tra, &M, &N, &alph, V, &N, &bet, var, &LDC);
 
+	for (i = 0; i < np; i++) {
+		for (j = i + 1; j < np; j++) {
+			var[j * np + i] = var[i * np + j];
+		}
+	}
+
 	free(V);
 }
 
