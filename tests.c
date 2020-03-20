@@ -166,5 +166,25 @@ void test_lib_gpr(void)
 	verify(test_jac_cost_fun_ard_asymm(4, dim, nx, 1e-6, 363), 1E-6);
 	verify(test_jac_cost_fun_ard_asymm(5, dim, nx, 1e-6, 363), 1E-6);
 	verify(test_jac_cost_fun_ard_asymm(6, dim, nx, 1e-6, 363), 1E-6);
-	verify(test_jac_cost_fun_ard_asymm(7, dim, nx, 1e-6, 363), 1E-6);
+
+	verify(test_symm_covar(dim, nx, ns, 66), 1E-7);
+
+	verify(test_symm_covar_jac(0, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(1, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(2, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(3, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(4, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(5, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(6, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_symm_covar_jac(7, dim, nx, 1e-6, 363), 1E-6);
+
+	verify(test_jac_cost_fun_ard_symm(0, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(1, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(2, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(3, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(4, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(5, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(6, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(7, dim, nx, 1e-6, 363), 1E-6);
+	verify(test_jac_cost_fun_ard_symm(7, dim, nx, 1e-6, 363), 1E-6);
 }

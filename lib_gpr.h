@@ -36,6 +36,9 @@ void gpr_interpolate(double *xp, double *yp, unsigned long np, double *x, double
 void gpr_interpolate_asymm(double *xp, double *axp, double *yp, unsigned long np, double *x,
 			   double *ax, double *y, unsigned long ns, unsigned int dim, double *p,
 			   unsigned int npar, double *var_yp, int is_opt);
+void gpr_interpolate_symm(double *xp, double *axp, double *yp, unsigned long np, double *x,
+			  double *ax, double *y, unsigned long ns, unsigned int dim, double *p,
+			  unsigned int npar, double *var_yp, int is_opt);
 void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
 			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
 			  unsigned int npar, double *var_yp, int is_opt);
@@ -47,6 +50,8 @@ void get_f_jac(double *f, double *jac, const double *hp, unsigned long nhp, void
 void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim);
 void get_hyper_param_ard_asymm(double *p, int np, double *x, double *ax, double *y,
 			       unsigned long ns, int dim);
+void get_hyper_param_ard_symm(double *p, int np, double *x, double *ax, double *y, unsigned long ns,
+			      int dim);
 void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
 			       unsigned long nsub, double lrate, int seed);
 void update_hpr_prm(double *hp, unsigned long nhp, double h, void *dat);
@@ -65,6 +70,12 @@ void get_asymm_covar(double *krn, const double *x, const double *xp, double *ax,
 void get_asymm_covar_jac(double *dK, unsigned int m, const double *kxx, const double *x,
 			 const double *ax, unsigned long nx, unsigned long dim, const double *p,
 			 int npar);
+void get_symm_covar(double *krn, const double *x, const double *xp, double *ax, double *axp,
+		    unsigned long nx, unsigned long nxp, unsigned long dim, const double *p,
+		    int npar);
+void get_symm_covar_jac(double *dK, unsigned int m, const double *kxx, const double *x,
+			const double *ax, unsigned long nx, unsigned long dim, const double *p,
+			int npar);
 
 /* TESTS */
 double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps,
@@ -74,8 +85,13 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 double test_asymm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int seed);
 double test_asymm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, double eps,
 			    int seed);
+double test_symm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int seed);
+double test_symm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, double eps,
+			   int seed);
 double test_jac_cost_fun_ard_asymm(int m, unsigned int dim, unsigned long nx, double eps, int seed);
 double test_gpr_interpolate_asymm(unsigned long ns, unsigned long np, int fno, int seed);
+double test_jac_cost_fun_ard_symm(int m, unsigned int dim, unsigned long nx, double eps, int seed);
+double test_gpr_interpolate_symm(unsigned long ns, unsigned long np, int fno, int seed);
 double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
 
 /* CROSS VALIDATION */
