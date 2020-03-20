@@ -314,7 +314,7 @@ void gpr_interpolate_symm(double *xp, double *axp, double *yp, unsigned long np,
 	assert(wt);
 
 	if (is_opt) {
-		get_hyper_param_ard_asymm(p, npar, x, ax, y, ns, dim);
+		get_hyper_param_ard_symm(p, npar, x, ax, y, ns, dim);
 	}
 
 	get_symm_covar(krxx, x, x, ax, ax, ns, ns, dim, p, npar);
