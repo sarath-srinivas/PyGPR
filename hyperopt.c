@@ -216,7 +216,7 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 	double *f, ret;
 	unsigned long i, j, iter, max_iter;
 	int k, status;
-	double step, tol;
+	double step, tol, eps_abs;
 
 	const gsl_multimin_fdfminimizer_type *T;
 	gsl_multimin_fdfminimizer *s;
@@ -250,8 +250,9 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 	T = gsl_multimin_fdfminimizer_conjugate_pr;
 	s = gsl_multimin_fdfminimizer_alloc(T, np);
 
-	step = 1E-2;
-	tol = 1E-3;
+	step = 1E-1;
+	tol = 1E-1;
+	eps_abs = 1E-3;
 
 	gsl_multimin_fdfminimizer_set(s, &fun, pv, step, tol);
 
@@ -260,10 +261,12 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 		iter++;
 		status = gsl_multimin_fdfminimizer_iterate(s);
 
-		if (status)
+		if (status) {
+			printf("error: %s\n", gsl_strerror(status));
 			break;
+		}
 
-		status = gsl_multimin_test_gradient(s->gradient, tol);
+		status = gsl_multimin_test_gradient(s->gradient, eps_abs);
 
 		for (i = 0; i < np; i++) {
 			fprintf(stderr, "%5ld P[%ld] %+.15E DF[%ld] %+.15E\n", iter, i,
