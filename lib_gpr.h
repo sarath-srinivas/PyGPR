@@ -4,9 +4,9 @@
 struct gpr_dat {
 	unsigned long int ns;
 	int dim;
-	double *x;
-	double *y;
-	double *r2;
+	const double *x;
+	const double *y;
+	const double *r2;
 };
 
 struct gpr_dat_asymm {
@@ -54,7 +54,8 @@ void get_hyper_param_ard_symm(double *p, int np, double *x, double *ax, double *
 			      int dim);
 void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
 			       unsigned long nsub, double lrate, int seed);
-void update_hpr_prm(double *hp, unsigned long nhp, double h, void *dat);
+void update_hpr_prm(double *hp, double *jac, unsigned long nhp, double h, const double *x,
+		    const double *y, const double *r2, unsigned long nx, unsigned int dim);
 
 /* COVARIANCE FUNCTIONS */
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,
