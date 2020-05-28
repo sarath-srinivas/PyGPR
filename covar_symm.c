@@ -4,17 +4,35 @@
 #include <math.h>
 #include <omp.h>
 #include <lib_rng/lib_rng.h>
-#include <lib_flow/lib_flow.h>
 #include "lib_gpr.h"
 
 #define CHUNK (100)
 
-void get_symm_covar(double *krn, const double *x, const double *xp, double *ax, double *axp,
-		    unsigned long nx, unsigned long nxp, unsigned long dim, const double *p,
-		    int npar)
+void input_wrap(double *ax, const double *x, unsigned long nx, unsigned int dim)
 {
-	double sig2, l, l2, r2[4], d[4];
+	unsigned long i;
+	unsigned int j;
+
+	for (i = 0; i < nx; i++) {
+		for (j = 0; j < dim; j++) {
+			ax[i * dim + j]
+			    = x[i * dim + j] * x[i * dim + dim - j]; /* some nonlin function */
+		}
+	}
+}
+
+void get_symm_covar(double *krn, const double *x, const double *xp, unsigned long nx,
+		    unsigned long nxp, unsigned int dim, const double *p, unsigned int npar,
+		    void *dat)
+{
+	double sig2, l, l2, r2[4], d[4], *ax, *axp;
 	unsigned long i, j, k;
+	int sgn;
+	struct symm_covar_dat *dt = dat;
+
+	ax = dt->ax;
+	axp = dt->axp;
+	sgn = dt->sgn;
 
 	assert(npar == dim + 1);
 
@@ -23,7 +41,7 @@ void get_symm_covar(double *krn, const double *x, const double *xp, double *ax, 
 #pragma omp parallel
 	{
 #pragma omp parallel for collapse(2) default(none)                                                 \
-    shared(nx, nxp, dim, x, xp, ax, axp, p, krn, sig2) private(i, j, k, r2, d)                     \
+    shared(sgn, nx, nxp, dim, x, xp, ax, axp, p, krn, sig2) private(i, j, k, r2, d)                \
 	schedule(dynamic, CHUNK)
 		for (i = 0; i < nx; i++)
 			for (j = 0; j < nxp; j++) {
@@ -46,19 +64,24 @@ void get_symm_covar(double *krn, const double *x, const double *xp, double *ax, 
 					r2[3] += d[3] * d[3] * (p[k] * p[k]);
 				}
 
-				krn[i * nxp + j]
-				    = sig2
-				      * (exp(-r2[0]) + exp(-r2[1]) + exp(-r2[2]) + exp(-r2[3]));
+				krn[i * nxp + j] = sig2
+						   * (exp(-r2[0]) + sgn * exp(-r2[1])
+						      + sgn * exp(-r2[2]) + exp(-r2[3]));
 			}
 	}
 }
 
 void get_symm_covar_jac(double *dK, unsigned int m, const double *kxx, const double *x,
-			const double *ax, unsigned long nx, unsigned long dim, const double *p,
-			int npar)
+			unsigned long nx, unsigned int dim, const double *p, unsigned int npar,
+			void *dat)
 {
-	double sig2, sig, l, l2, r2[4], d[4], dm[4], pm, pm2;
+	double sig2, sig, l, l2, r2[4], d[4], dm[4], pm, pm2, *ax;
 	unsigned long i, j, k, nx2;
+	int sgn;
+	struct symm_covar_dat *dt = dat;
+
+	ax = dt->ax;
+	sgn = dt->sgn;
 
 	assert(npar == dim + 1);
 
@@ -68,14 +91,12 @@ void get_symm_covar_jac(double *dK, unsigned int m, const double *kxx, const dou
 	sig2 = p[dim] * p[dim];
 
 	if (m < npar - 1) {
-
-		pm2 = p[m] * p[m];
 		pm = p[m];
 
 #pragma omp parallel
 		{
 #pragma omp parallel for collapse(2) default(none)                                                 \
-    shared(m, nx, dim, x, ax, p, pm, dK, sig2) private(i, j, k, r2, d, dm)                         \
+    shared(sgn, m, nx, dim, x, ax, p, pm, dK, sig2) private(i, j, k, r2, d, dm)                    \
 	schedule(dynamic, CHUNK)
 			for (i = 0; i < nx; i++)
 				for (j = 0; j < nx; j++) {
@@ -105,8 +126,8 @@ void get_symm_covar_jac(double *dK, unsigned int m, const double *kxx, const dou
 
 					dK[i * nx + j] = -2.0 * sig2 * pm
 							 * (dm[0] * dm[0] * exp(-r2[0])
-							    + dm[1] * dm[1] * exp(-r2[1])
-							    + dm[2] * dm[2] * exp(-r2[2])
+							    + sgn * dm[1] * dm[1] * exp(-r2[1])
+							    + sgn * dm[2] * dm[2] * exp(-r2[2])
 							    + dm[3] * dm[3] * exp(-r2[3]));
 				}
 		}
@@ -124,15 +145,19 @@ void get_symm_covar_jac(double *dK, unsigned int m, const double *kxx, const dou
 
 /* TESTS */
 
-double test_symm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int seed)
+double test_symm_covar(int sgn, unsigned int dim, unsigned long nx, unsigned long ns, int seed)
 {
 	double *x, *ax, *xs, *axs, *kxx, *akxx, *p, xmax, err_norm;
 	unsigned int np;
 	unsigned long i, j, nx2;
 	int N, INCX, INCY;
 	dsfmt_t drng;
+	struct symm_covar_dat *dt;
 
 	printf("test_symm_covar(dim = %u, nx = %lu, ns = %lu):\n", dim, nx, ns);
+
+	dt = malloc(1 * sizeof(struct symm_covar_dat));
+	assert(dt);
 
 	np = dim + 1;
 
@@ -170,8 +195,8 @@ double test_symm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int
 		}
 	}
 
-	get_ph_dlp_mirr(ax, x, nx, dim);
-	get_ph_dlp_mirr(axs, xs, ns, dim);
+	input_wrap(ax, x, nx, dim);
+	input_wrap(axs, xs, ns, dim);
 
 	dsfmt_init_gen_rand(&drng, seed + 34);
 
@@ -179,13 +204,17 @@ double test_symm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int
 		p[i] = 0.5 + dsfmt_genrand_close_open(&drng);
 	}
 
-	get_symm_covar(kxx, x, xs, ax, axs, nx, ns, dim, p, np);
+	dt->ax = ax;
+	dt->axp = axs;
+	dt->sgn = sgn;
 
-	get_symm_covar(akxx, ax, xs, x, axs, nx, ns, dim, p, np);
+	get_symm_covar(kxx, x, xs, nx, ns, dim, p, np, dt);
+
+	get_symm_covar(akxx, ax, xs, nx, ns, dim, p, np, dt);
 
 	err_norm = 0;
 	for (i = 0; i < nx2; i++) {
-		err_norm += fabs(kxx[i] - akxx[i]);
+		err_norm += fabs(kxx[i] - sgn * akxx[i]);
 	}
 
 	err_norm /= nx2;
@@ -197,19 +226,25 @@ double test_symm_covar(unsigned int dim, unsigned long nx, unsigned long ns, int
 	free(xs);
 	free(ax);
 	free(x);
+	free(dt);
 
 	return sqrt(err_norm);
 }
 
-double test_symm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, double eps, int seed)
+double test_symm_covar_jac(int sgn, unsigned int m, unsigned int dim, unsigned long nx, double eps,
+			   int seed)
 {
 	double *x, *ax, *kxx, *kxx_eps, *dk, *dk_num, *p, xmax, err_norm;
 	unsigned int np;
 	unsigned long i, j, nx2;
 	int N, INCX, INCY;
 	dsfmt_t drng;
+	struct symm_covar_dat *dt;
 
 	printf("test_symm_covar_jac(m = %u, dim = %u, nx = %lu, eps = %.1E):\n", m, dim, nx, eps);
+
+	dt = malloc(1 * sizeof(struct symm_covar_dat));
+	assert(dt);
 
 	np = dim + 1;
 	assert(m <= np);
@@ -242,7 +277,7 @@ double test_symm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, d
 		}
 	}
 
-	get_ph_dlp_mirr(ax, x, nx, dim);
+	input_wrap(ax, x, nx, dim);
 
 	dsfmt_init_gen_rand(&drng, seed + 34);
 
@@ -250,13 +285,17 @@ double test_symm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, d
 		p[i] = 0.5 + dsfmt_genrand_close_open(&drng);
 	}
 
-	get_symm_covar(kxx, x, x, ax, ax, nx, nx, dim, p, np);
+	dt->ax = ax;
+	dt->axp = ax;
+	dt->sgn = sgn;
 
-	get_symm_covar_jac(dk, m, kxx, x, ax, nx, dim, p, np);
+	get_symm_covar(kxx, x, x, nx, nx, dim, p, np, dt);
+
+	get_symm_covar_jac(dk, m, kxx, x, nx, dim, p, np, dt);
 
 	p[m] += eps;
 
-	get_symm_covar(kxx_eps, x, x, ax, ax, nx, nx, dim, p, np);
+	get_symm_covar(kxx_eps, x, x, nx, nx, dim, p, np, dt);
 
 	for (i = 0; i < nx2; i++) {
 
@@ -282,6 +321,7 @@ double test_symm_covar_jac(unsigned int m, unsigned int dim, unsigned long nx, d
 	free(dk_num);
 	free(p);
 	free(x);
+	free(dt);
 
 	return sqrt(err_norm);
 }

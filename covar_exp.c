@@ -10,7 +10,8 @@
 #define CHUNK (100)
 
 void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned long nx,
-		    unsigned long nxp, unsigned long dim, const double *p, int npar)
+		    unsigned long nxp, unsigned int dim, const double *p, unsigned int npar,
+		    void *dat)
 {
 	double sig_y, l, l2, r2, x_xp;
 	unsigned long i, j, k;
@@ -37,8 +38,9 @@ void get_krn_se_ard(double *krn, const double *x, const double *xp, unsigned lon
 	}
 }
 
-void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsigned long nx,
-		     unsigned int dim, const double *p, int np)
+void get_dkrn_se_ard(double *dK, unsigned int k, const double *x, const double *kxx,
+		     unsigned long nx, unsigned int dim, const double *p, unsigned int np,
+		     void *dat)
 {
 	double pk, xij_d;
 	unsigned long i, j, nx2;
@@ -73,34 +75,6 @@ void get_dkrn_se_ard(double *dK, int k, const double *x, const double *kxx, unsi
 			dK[i] = (2.0 / p[k]) * kxx[i];
 		}
 	}
-}
-
-void get_krn_rat_quad(double *krn, const double *x, const double *xp, unsigned long nx,
-		      unsigned long nxp, unsigned long dim, const double *par, int npar,
-		      const double *hpar, int nhpar)
-{
-	double sig_y, l, l2, r2, x_xp, alph;
-	unsigned long i, j, k;
-
-	assert(npar == 1);
-	assert(nhpar == 1);
-
-	sig_y = 1.0;
-	l = hpar[0];
-	alph = par[0];
-	l2 = l * l;
-
-	for (i = 0; i < nx; i++)
-		for (j = 0; j < nxp; j++) {
-
-			r2 = 0;
-			for (k = 0; k < dim; k++) {
-				x_xp = x[dim * i + k] - xp[dim * j + k];
-				r2 += x_xp * x_xp;
-			}
-
-			krn[i * nxp + j] = sig_y * sig_y * pow((1 + r2 / (2 * alph * l2)), -alph);
-		}
 }
 
 /* TESTS */
@@ -150,13 +124,13 @@ double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, 
 		p[i] = 0.5 + dsfmt_genrand_close_open(&drng);
 	}
 
-	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np);
+	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np, NULL);
 
-	get_dkrn_se_ard(dk, m, x, kxx, nx, dim, p, np);
+	get_dkrn_se_ard(dk, m, x, kxx, nx, dim, p, np, NULL);
 
 	p[m] += eps;
 
-	get_krn_se_ard(kxx_eps, x, x, nx, nx, dim, p, np);
+	get_krn_se_ard(kxx_eps, x, x, nx, nx, dim, p, np, NULL);
 
 	for (i = 0; i < nx2; i++) {
 
