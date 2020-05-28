@@ -13,7 +13,8 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 {
 	struct gpr_dat *gp;
 	unsigned long ns, np;
-	int i, dim, info;
+	int i, info;
+	unsigned int dim;
 	double *wt, *krn, *krn_chd, f, *p;
 
 	gp = (struct gpr_dat *)data;
@@ -33,7 +34,7 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 	krn_chd = malloc(ns * ns * sizeof(double));
 	assert(krn_chd);
 
-	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
+	gp->covar(krn, gp->x, gp->x, ns, ns, gp->dim, p, np, gp->covar_args);
 
 	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
@@ -73,7 +74,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 	krn_chd = malloc(ns * ns * sizeof(double));
 	assert(krn_chd);
 
-	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
+	gp->covar(krn, gp->x, gp->x, ns, ns, gp->dim, p, np, gp->covar_args);
 
 	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
@@ -93,12 +94,12 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 	B = malloc(N * sizeof(double));
 	assert(B);
 
-	kl = malloc(N * N * sizeof(double));
+	kl = malloc(N2 * sizeof(double));
 	assert(kl);
 
 	for (k = 0; k < np; k++) {
 
-		get_dkrn_se_ard(kl, k, gp->x, krn, N, dim, p, np);
+		gp->covar_jac(kl, k, gp->x, krn, N, dim, p, np, gp->covar_args);
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
@@ -154,7 +155,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	krn_chd = malloc(ns * ns * sizeof(double));
 	assert(krn_chd);
 
-	get_krn_se_ard(krn, gp->x, gp->x, ns, ns, gp->dim, p, np);
+	gp->covar(krn, gp->x, gp->x, ns, ns, gp->dim, p, np, gp->covar_args);
 
 	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
@@ -176,12 +177,12 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	B = malloc(N * sizeof(double));
 	assert(B);
 
-	kl = malloc(N * N * sizeof(double));
+	kl = malloc(N2 * sizeof(double));
 	assert(kl);
 
 	for (k = 0; k < np; k++) {
 
-		get_dkrn_se_ard(kl, k, gp->x, krn, N, dim, p, np);
+		gp->covar_jac(kl, k, gp->x, krn, N, dim, p, np, gp->covar_args);
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
@@ -210,7 +211,13 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	free(krn_chd);
 }
 
-void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long ns, int dim)
+void get_hyper_param_ard(
+    double *p, unsigned int np, double *x, double *y, unsigned long ns, unsigned int dim,
+    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+	       unsigned int dim, const double *p, unsigned int npar, void *dat),
+    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
+		   unsigned int dim, const double *p, unsigned int np, void *dat),
+    void *dat)
 {
 	struct gpr_dat *gp;
 	double *f, ret;
@@ -231,6 +238,9 @@ void get_hyper_param_ard(double *p, int np, double *x, double *y, unsigned long 
 	gp->x = x;
 	gp->y = y;
 	gp->r2 = NULL;
+	gp->covar = covar;
+	gp->covar_jac = covar_jac;
+	gp->covar_args = dat;
 
 	max_iter = 10000;
 
@@ -330,100 +340,10 @@ void get_f_jac(double *f, double *jac, const double *hp, unsigned long nhp, void
 	gsl_vector_free(gsl_jac);
 }
 
-void get_hyper_param_ard_stoch(double *p, int np, double *x, double *y, unsigned long ns, int dim,
-			       unsigned long nsub, double lrate, int seed)
-{
-	double tol, *pt, *jact, *xsub, *ysub;
-	struct gpr_dat *gp;
-	unsigned long i, m, n, j, iter, max_iter, *a;
-
-	gsl_vector *pv, *jac;
-
-	pt = malloc(np * sizeof(double));
-	assert(pt);
-	jact = malloc(np * sizeof(double));
-	assert(jact);
-
-	xsub = malloc(nsub * dim * sizeof(double));
-	assert(xsub);
-	ysub = malloc(nsub * sizeof(double));
-	assert(ysub);
-	a = malloc(ns * sizeof(unsigned long));
-	assert(a);
-
-	pv = gsl_vector_alloc(np);
-	assert(pv);
-	jac = gsl_vector_alloc(np);
-	assert(jac);
-
-	gp = malloc(1 * sizeof(struct gpr_dat));
-	assert(gp);
-
-	for (i = 0; i < np; i++) {
-		gsl_vector_set(pv, i, p[i]);
-	}
-
-	for (i = 0; i < ns; i++) {
-		a[i] = i;
-	}
-
-	max_iter = 1000;
-
-	for (m = 0; m < max_iter; m++) {
-
-		fisher_yates_shuffle(a, ns, seed);
-
-		for (i = 0; i < nsub; i++) {
-
-			n = a[i];
-
-			for (j = 0; j < nsub; j++) {
-				xsub[i * dim + j] = x[n * dim + j];
-			}
-
-			ysub[i] = y[n];
-		}
-
-		gp->ns = nsub;
-		gp->dim = dim;
-		gp->x = xsub;
-		gp->y = ysub;
-		gp->r2 = NULL;
-
-		jac_cost_fun_ard(pv, gp, jac);
-
-		for (i = 0; i < np; i++) {
-			pt[i] = gsl_vector_get(pv, i);
-			jact[i] = gsl_vector_get(jac, i);
-		}
-
-		for (i = 0; i < np; i++) {
-			printf("P[%ld] %+.15E J[%ld] %+.15E\n", i, pt[i], i, jact[i]);
-		}
-		printf("\n");
-
-		for (i = 0; i < np; i++) {
-			pt[i] = pt[i] - lrate * jact[i];
-		}
-
-		for (i = 0; i < np; i++) {
-			gsl_vector_set(pv, i, pt[i]);
-			gsl_vector_set(jac, i, jact[i]);
-		}
-	}
-
-	free(gp);
-	free(pt);
-	free(jact);
-	free(xsub);
-	free(ysub);
-	free(a);
-	gsl_vector_free(pv);
-	gsl_vector_free(jac);
-}
-
 /* TESTS */
-double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double eps, int seed)
+
+double test_jac_cost_fun_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps,
+			     int seed)
 {
 	double *x, *kxx, *lkxx, *wt, *y, xd, llhd, llhd_eps, dllhd, dllhd_num, *p, xmax, err_norm;
 	struct gpr_dat *gp;
@@ -448,9 +368,9 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 	p = malloc(np * sizeof(double));
 	assert(p);
 
-	kxx = malloc(nx * nx * sizeof(double));
+	kxx = malloc(nx2 * sizeof(double));
 	assert(kxx);
-	lkxx = malloc(nx * nx * sizeof(double));
+	lkxx = malloc(nx2 * sizeof(double));
 	assert(lkxx);
 
 	dsfmt_init_gen_rand(&drng, seed);
@@ -477,7 +397,7 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 		p[i] = 0.5 + dsfmt_genrand_close_open(&drng);
 	}
 
-	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np);
+	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np, NULL);
 	get_gpr_weights(wt, lkxx, kxx, nx, dim, y);
 
 	llhd = get_log_likelihood(wt, y, nx, lkxx, NULL);
@@ -490,6 +410,9 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 	gp->x = x;
 	gp->y = y;
 	gp->r2 = NULL;
+	gp->covar = get_krn_se_ard;
+	gp->covar_jac = get_dkrn_se_ard;
+	gp->covar_args = NULL;
 
 	pv = gsl_vector_alloc(np);
 	assert(pv);
@@ -506,7 +429,7 @@ double test_jac_cost_fun_ard(int m, unsigned int dim, unsigned long nx, double e
 
 	p[m] += eps;
 
-	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np);
+	get_krn_se_ard(kxx, x, x, nx, nx, dim, p, np, NULL);
 	get_gpr_weights(wt, lkxx, kxx, nx, dim, y);
 
 	llhd_eps = get_log_likelihood(wt, y, nx, lkxx, NULL);
