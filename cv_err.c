@@ -104,7 +104,9 @@ void get_subsample_cv_holdout(double *ytst, double *xtst, unsigned long ntst, do
 	assert(n % ntst == 0 && "Subsample does not divide sample!!");
 	assert(ntrn == n - ntst);
 
+	/*
 	nsub = n / ntst;
+	*/
 
 	for (j = 0; j < ntst; j++) {
 
@@ -284,6 +286,9 @@ void test_get_subsample_cv_holdout(unsigned long n, unsigned long ntst, unsigned
 	unsigned long ntrn, i, d;
 	dsfmt_t drng;
 
+	printf("test_get_subsample_cv_holdout(n = %lu, ntst = %lu, k = %lu, dim = %u):\n", n, ntst,
+	       k, dim);
+
 	ntrn = n - ntst;
 
 	x = malloc(n * dim * sizeof(double));
@@ -361,6 +366,9 @@ void test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long nt
 	unsigned long nhpar, i;
 	dsfmt_t drng;
 
+	printf("test_get_gpr_cv_holdout(n = %lu, ntst = %lu, nbtch = %lu, dim = %u):\n", n, ntst,
+	       nbtch, dim);
+
 	y = malloc(n * sizeof(double));
 	assert(y);
 	x = malloc(n * dim * sizeof(double));
@@ -391,7 +399,7 @@ void test_get_gpr_cv_holdout(unsigned long n, unsigned int dim, unsigned long nt
 		hpar[i] = 1.0;
 	}
 
-	get_hyper_param_ard(hpar, nhpar, x, y, n, dim);
+	get_hyper_param_ard(hpar, nhpar, x, y, n, dim, get_krn_se_ard, get_dkrn_se_ard, NULL);
 
 	get_gpr_cv_holdout(cv, x, y, n, dim, hpar, nhpar, ntst, nbtch, est);
 
