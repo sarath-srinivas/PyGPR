@@ -210,6 +210,10 @@ double test_symm_covar(int sgn, unsigned int dim, unsigned long nx, unsigned lon
 
 	get_symm_covar(kxx, x, xs, nx, ns, dim, p, np, dt);
 
+	dt->ax = x;
+	dt->axp = axs;
+	dt->sgn = sgn;
+
 	get_symm_covar(akxx, ax, xs, nx, ns, dim, p, np, dt);
 
 	err_norm = 0;

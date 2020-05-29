@@ -371,6 +371,59 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 	free(krpp);
 }
 
+void gpr_interpolate_wrap(
+    double *xp, double *yp, unsigned long np, double *x, double *y, unsigned long ns,
+    unsigned int dim, double *p, unsigned int npar, double *var_yp, int is_opt,
+    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+	       unsigned int dim, const double *p, unsigned int npar, void *dat),
+    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
+		   unsigned int dim, const double *p, unsigned int np, void *dat),
+    void *dat)
+{
+	double *krxx, *lkrxx, *krpx, *krpp, *wt;
+	int info;
+
+	krxx = malloc(ns * ns * sizeof(double));
+	assert(krxx);
+
+	lkrxx = malloc(ns * ns * sizeof(double));
+	assert(lkrxx);
+
+	krpx = malloc(np * ns * sizeof(double));
+	assert(krpx);
+
+	krpp = malloc(np * np * sizeof(double));
+	assert(krpp);
+
+	wt = malloc(ns * sizeof(double));
+	assert(wt);
+
+	if (is_opt) {
+		get_hyper_param_ard(p, npar, x, y, ns, dim, covar, covar_jac, dat);
+	}
+
+	covar(krxx, x, x, ns, ns, dim, p, npar, dat);
+
+	get_gpr_weights(wt, lkrxx, krxx, ns, dim, y);
+
+	covar(krpx, xp, x, np, ns, dim, p, npar, dat);
+
+	gpr_predict(yp, wt, krpx, np, ns);
+
+	if (var_yp) {
+
+		covar(krpp, xp, xp, np, np, dim, p, npar, dat);
+
+		get_var_mat_chd(var_yp, krpp, krpx, lkrxx, np, ns);
+	}
+
+	free(wt);
+	free(krpx);
+	free(lkrxx);
+	free(krxx);
+	free(krpp);
+}
+
 void sample_gp(double *y, const double *mn, const double *kxx, unsigned long ns, int seed)
 {
 	double *lkxx;

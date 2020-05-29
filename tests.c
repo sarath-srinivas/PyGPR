@@ -86,18 +86,16 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 		p[i] = 1.0;
 	}
 
+	/*
 	gpr_interpolate(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1);
+	*/
+
+	gpr_interpolate_wrap(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1, get_krn_se_ard,
+			     get_dkrn_se_ard, NULL);
 
 	err = 0;
 	for (i = 0; i < np; i++) {
-		for (j = 0; j < np; j++) {
-
-			err += fabs(var_yp[i * np + j] - var_yp[j * np + i]);
-
-			if (DEBUG) {
-				printf("%5lu %5lu %+.15E\n", i, j, var_yp[i * np + j]);
-			}
-		}
+		err += fabs(yp[i] - yt[i]);
 	}
 
 	if (DEBUG) {

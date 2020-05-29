@@ -22,3 +22,11 @@ void gpr_interpolate_symm(double *xp, double *axp, double *yp, unsigned long np,
 void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long np, double *x,
 			  double *y, double *y_mn, unsigned long ns, unsigned int dim, double *p,
 			  unsigned int npar, double *var_yp, int is_opt);
+void gpr_interpolate_wrap(
+    double *xp, double *yp, unsigned long np, double *x, double *y, unsigned long ns,
+    unsigned int dim, double *p, unsigned int npar, double *var_yp, int is_opt,
+    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+	       unsigned int dim, const double *p, unsigned int npar, void *dat),
+    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
+		   unsigned int dim, const double *p, unsigned int np, void *dat),
+    void *dat);
