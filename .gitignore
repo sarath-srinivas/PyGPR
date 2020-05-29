@@ -2,6 +2,7 @@
 !.gitignore
 !makefile
 !*.c
+!*.py
 !*.a
 !*.txt
 !*.h
