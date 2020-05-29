@@ -77,6 +77,74 @@ void get_dkrn_se_ard(double *dK, unsigned int k, const double *x, const double *
 	}
 }
 
+void get_krn_modexp_ard(double *krn, const double *x, const double *xp, unsigned long nx,
+			unsigned long nxp, unsigned int dim, const double *p, unsigned int npar,
+			void *dat)
+{
+	double sig_y, l, l2, r1, x_xp;
+	unsigned long i, j, k;
+
+	assert(npar == dim + 1);
+
+	sig_y = p[dim];
+
+#pragma omp parallel
+	{
+#pragma omp parallel for collapse(2) default(none)                                                 \
+    shared(nx, nxp, dim, x, xp, p, krn, sig_y) private(i, j, k, r1, x_xp) schedule(dynamic, CHUNK)
+		for (i = 0; i < nx; i++)
+			for (j = 0; j < nxp; j++) {
+
+				r1 = 0;
+				for (k = 0; k < dim; k++) {
+					x_xp = x[dim * i + k] - xp[dim * j + k];
+					r1 += fabs(x_xp) * (p[k]);
+				}
+
+				krn[i * nxp + j] = sig_y * sig_y * exp(-r1);
+			}
+	}
+}
+
+void get_dkrn_modexp_ard(double *dK, unsigned int k, const double *x, const double *kxx,
+			 unsigned long nx, unsigned int dim, const double *p, unsigned int np,
+			 void *dat)
+{
+	double pk, xij_d;
+	unsigned long i, j, nx2;
+
+	nx2 = nx * nx;
+
+	assert(np == dim + 1);
+
+	if (k < np - 1) {
+
+		/* dK/dl_k */
+
+		pk = p[k];
+
+#pragma omp parallel for collapse(2) default(none)                                                 \
+    shared(nx, x, k, dim, dK, pk, kxx) private(i, j, xij_d) schedule(dynamic, CHUNK)
+		for (i = 0; i < nx; ++i) {
+			for (j = 0; j < nx; ++j) {
+
+				xij_d = x[i * dim + k] - x[j * dim + k];
+				dK[i * nx + j] = -fabs(xij_d) * kxx[i * nx + j];
+			}
+		}
+
+	} else {
+
+		/* dK/dsigma */
+
+#pragma omp parallel for default(none) shared(nx2, p, k, dK, kxx) private(i)                       \
+    schedule(dynamic, CHUNK)
+		for (i = 0; i < nx2; i++) {
+			dK[i] = (2.0 / p[k]) * kxx[i];
+		}
+	}
+}
+
 /* TESTS */
 double test_get_dkrn_se_ard(unsigned int m, unsigned int dim, unsigned long nx, double eps,
 			    int seed)

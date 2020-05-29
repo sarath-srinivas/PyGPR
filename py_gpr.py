@@ -13,11 +13,13 @@ cdbl_p = ct.POINTER(cdbl)
 
 lib = nct.load_library(os.environ['LIB'], ".")
 
-covars = { "exp" : lib.get_krn_se_ard,
-          "symm_exp" : lib.get_symm_covar }
+covars = { "sq_exp" : lib.get_krn_se_ard,
+           "exp" : lib.get_krn_modexp_ard,
+           "symm_exp" : lib.get_symm_covar }
 
-covar_jacs = { "exp" : lib.get_dkrn_se_ard,
-              "symm_exp" : lib.get_symm_covar_jac }
+covar_jacs = { "sq_exp" : lib.get_dkrn_se_ard,
+               "exp" : lib.get_dkrn_modexp_ard,
+               "symm_exp" : lib.get_symm_covar_jac }
 
 for i in covars:
     covars[i].argtypes = [cdbl_p, cdbl_p, cdbl_p, ul, ul, ui, cdbl_p, ui, cvoid]
