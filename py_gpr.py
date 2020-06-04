@@ -4,6 +4,7 @@ import ctypes as ct
 import os
 
 arr = nct.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
+
 ul = ct.c_ulong
 ui = ct.c_uint
 si = ct.c_int
@@ -15,10 +16,12 @@ lib = nct.load_library(os.environ['LIB'], ".")
 
 covars = { "sq_exp" : lib.get_krn_se_ard,
            "exp" : lib.get_krn_modexp_ard,
+           "sin" : lib.get_krn_sin_ard,
            "symm_exp" : lib.get_symm_covar }
 
 covar_jacs = { "sq_exp" : lib.get_dkrn_se_ard,
                "exp" : lib.get_dkrn_modexp_ard,
+               "sin" : lib.get_dkrn_sin_ard,
                "symm_exp" : lib.get_symm_covar_jac }
 
 for i in covars:
@@ -85,13 +88,28 @@ def get_hyperparam(hp, x, y, krn='exp'):
 lib.sample_gp.argtypes = [arr, arr, arr, ul, si]
 lib.sample_gp.restype = cvoid
 
-def sample_gpr_fun(mn, covar, seed):
-    n = len(mn)
+def sample_gpr_fun(kxx, mn, seed):
+    n = kxx.shape[0]
+
+    if mn == None:
+        mn = np.zeros(n)
 
     y = np.empty(n, dtype=np.float64)
 
-    lib.sample_gp(y, mn, covar.ravel(), n, seed) 
+    lib.sample_gp(y, mn, kxx.ravel(), n, seed) 
 
     return y
+
+def get_covar(x, covar, args):
+    n = x.shape[0]
+
+    kxx = np.empty((n,n), dtype=np.float64)
+
+    for i in range(n): 
+        for j in range(n): 
+            kxx[i,j] = covar(x[i], x[j], args)
+
+    return kxx
+
 
 
