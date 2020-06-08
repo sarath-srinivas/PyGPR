@@ -50,7 +50,10 @@ def interpolate(xp, x, y, p,  krn='exp', is_opt=1):
 
     npar = len(p)
 
-    assert npar == dim + 1
+    if krn=='sin':
+        assert npar == 2 * dim + 1
+    else:
+        assert npar == dim + 1
 
     yp = np.empty(nt, dtype=np.double)
     var = np.empty(nt*nt, dtype=np.double)

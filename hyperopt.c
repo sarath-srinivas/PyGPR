@@ -23,7 +23,6 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 
 	p = pv->data;
 	np = pv->size;
-	assert(np == dim + 1);
 
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
@@ -63,7 +62,6 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 	p = pv->data;
 	np = pv->size;
 	dim = gp->dim;
-	assert(np == dim + 1);
 
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
@@ -144,7 +142,6 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	p = pv->data;
 	np = pv->size;
 	dim = gp->dim;
-	assert(np == dim + 1);
 
 	wt = malloc(ns * sizeof(double));
 	assert(wt);
