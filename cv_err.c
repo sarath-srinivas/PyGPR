@@ -60,6 +60,7 @@ double get_mhlbs_dist(const double *y, const double *y_pred, const double *covar
 {
 	double *diff, *kdiff, *covar_chd, mhlbs_dist;
 	unsigned long i;
+	long int Nl;
 	int N, NRHS, LDA, LDB, info, INCX, INCY;
 	unsigned char UPLO;
 
@@ -75,20 +76,21 @@ double get_mhlbs_dist(const double *y, const double *y_pred, const double *covar
 		kdiff[i] = diff[i];
 	}
 
-	N = n * n;
+	Nl = n * n;
 	INCX = 1;
 	INCY = 1;
-	dcopy_(&N, covar, &INCX, covar_chd, &INCY);
+	dcopy_(&Nl, covar, &INCX, covar_chd, &INCY);
 
 	UPLO = 'L';
 	N = (int)n;
+	Nl = N;
 	LDA = (int)n;
 	LDB = (int)n;
 	NRHS = 1;
 	dposv_(&UPLO, &N, &NRHS, covar_chd, &LDA, kdiff, &LDB, &info);
 	assert(info == 0);
 
-	mhlbs_dist = ddot_(&N, diff, &INCX, kdiff, &INCY);
+	mhlbs_dist = ddot_(&Nl, diff, &INCX, kdiff, &INCY);
 
 	mhlbs_dist /= 1;
 

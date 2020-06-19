@@ -2,6 +2,7 @@
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <blas/lapack.h>
@@ -16,6 +17,7 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 	int i, info;
 	unsigned int dim;
 	double *wt, *krn, *krn_chd, f, *p;
+	time_t s;
 
 	gp = (struct gpr_dat *)data;
 	ns = gp->ns;
@@ -49,8 +51,9 @@ static double cost_fun_ard(const gsl_vector *pv, void *data)
 static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 {
 	unsigned char tra, uplo;
-	unsigned long np, N2;
+	unsigned long np;
 	struct gpr_dat *gp;
+	long int Nl, N2;
 	int i, j, k, ns, N, M, LDA, LDB, incx, incy, info, dim;
 	double *B, *kl, alph, bet, tr_wt, tr_krn, sig_f, l, ld3, jac_l, xij_d;
 	double *wt, *krn, *krn_chd, *p;
@@ -77,6 +80,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 	get_gpr_weights(wt, krn_chd, krn, ns, gp->dim, gp->y);
 
 	N = gp->ns;
+	Nl = N;
 	M = gp->ns;
 	LDA = gp->ns;
 	alph = 1.0;
@@ -87,7 +91,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 	uplo = 'L';
 	LDA = gp->ns;
 	LDB = gp->ns;
-	N2 = N * N;
+	N2 = Nl * Nl;
 
 	B = malloc(N * sizeof(double));
 	assert(B);
@@ -101,10 +105,7 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
-		tr_wt = 0;
-		for (i = 0; i < N; ++i) {
-			tr_wt += wt[i] * B[i];
-		}
+		tr_wt = ddot_(&Nl, wt, &incx, B, &incy);
 
 		dpotrs_(&uplo, &N, &M, krn_chd, &LDA, kl, &LDB, &info);
 		assert(info == 0);
@@ -129,8 +130,9 @@ static void jac_cost_fun_ard(const gsl_vector *pv, void *data, gsl_vector *jac)
 static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_vector *jac)
 {
 	unsigned char tra, uplo;
-	unsigned long np, N2;
+	unsigned long np;
 	struct gpr_dat *gp;
+	long int Nl, N2;
 	int i, j, k, ns, N, M, LDA, LDB, incx, incy, info, dim;
 	double *B, *kl, alph, bet, tr_wt, tr_krn, sig_f, l, ld3, xij_d, jac_l;
 	double *wt, *krn, *krn_chd, *p;
@@ -159,6 +161,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	*f = -1.0 * get_log_likelihood(wt, gp->y, ns, krn_chd, NULL);
 
 	N = gp->ns;
+	Nl = N;
 	M = gp->ns;
 	LDA = gp->ns;
 	alph = 1.0;
@@ -169,7 +172,7 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 	uplo = 'L';
 	LDA = gp->ns;
 	LDB = gp->ns;
-	N2 = N * N;
+	N2 = Nl * Nl;
 
 	B = malloc(N * sizeof(double));
 	assert(B);
@@ -183,11 +186,6 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 
 		dgemv_(&tra, &M, &N, &alph, kl, &LDA, wt, &incx, &bet, B, &incy);
 
-		tr_wt = 0;
-		for (i = 0; i < N; ++i) {
-			tr_wt += wt[i] * B[i];
-		}
-
 		dpotrs_(&uplo, &N, &M, krn_chd, &LDA, kl, &LDB, &info);
 		assert(info == 0);
 
@@ -195,6 +193,15 @@ static void fdf_cost_fun_ard(const gsl_vector *pv, void *data, double *f, gsl_ve
 		for (i = 0; i < N; ++i) {
 			tr_krn += kl[i * N + i];
 		}
+
+		tr_wt = ddot_(&Nl, wt, &incx, B, &incy);
+
+		/*
+		dpotri_(&uplo, &N, krn_chd, &LDA, &info);
+		assert(info == 0);
+
+		tr_krn = ddot_(&N2, krn_chd, &incx, kl, &incy);
+		*/
 
 		jac_l = 0.5 * (tr_wt - tr_krn);
 

@@ -21,7 +21,7 @@
 
 /* TESTS */
 
-double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed);
+double test_gpr_interpolate(unsigned long ns, unsigned long np, unsigned int dim, int seed);
 void test_lib_gpr(void);
 
 /* UPDATE HYPERPARAM */

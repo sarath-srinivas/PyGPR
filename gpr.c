@@ -170,14 +170,15 @@ double get_log_likelihood(const double *wt, const double *y, unsigned long ns,
 			  const double *krn_chd, double *ret)
 {
 	double llhd, ywt, log_det_k;
+	long Nl;
 	int N, incx, incy;
 	unsigned long i;
 
-	N = ns;
+	Nl = ns;
 	incx = 1;
 	incy = 1;
 
-	ywt = ddot_(&N, y, &incx, wt, &incy);
+	ywt = ddot_(&Nl, y, &incx, wt, &incy);
 
 	log_det_k = 0;
 	for (i = 0; i < ns; i++) {
@@ -311,6 +312,7 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 {
 	double *krxx, *lkrxx, *krpx, *krpp, *wt, *y_res, ALPHA;
 	int info, INCX, INCY, N;
+	long Nl;
 
 	krxx = malloc(ns * ns * sizeof(double));
 	assert(krxx);
@@ -331,13 +333,14 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 	assert(wt);
 
 	N = ns;
+	Nl = N;
 	INCX = 1;
 	INCY = 1;
 	ALPHA = -1.0;
 
-	dcopy_(&N, y, &INCX, y_res, &INCY);
+	dcopy_(&Nl, y, &INCX, y_res, &INCY);
 
-	daxpy_(&N, &ALPHA, y_mn, &INCX, y_res, &INCY);
+	daxpy_(&Nl, &ALPHA, y_mn, &INCX, y_res, &INCY);
 
 	if (is_opt) {
 		get_hyper_param_ard(p, npar, x, y_res, ns, dim, get_krn_se_ard, get_dkrn_se_ard,
@@ -352,9 +355,9 @@ void gpr_interpolate_mean(double *xp, double *yp, double *yp_mn, unsigned long n
 
 	gpr_predict(yp, wt, krpx, np, ns);
 
-	N = np;
+	Nl = np;
 
-	daxpy_(&N, &ALPHA, yp_mn, &INCX, yp, &INCY);
+	daxpy_(&Nl, &ALPHA, yp_mn, &INCX, yp, &INCY);
 
 	if (var_yp) {
 
@@ -429,16 +432,17 @@ void sample_gp(double *y, const double *mn, const double *kxx, unsigned long ns,
 	double *lkxx;
 	unsigned char UPLO, TRA, DIAG;
 	unsigned long i;
+	long Nl;
 	int N, LDA, INCX, INCY, INFO;
 
 	lkxx = malloc(ns * ns * sizeof(double));
 	assert(lkxx);
 
-	N = ns * ns;
+	Nl = ns * ns;
 	INCX = 1;
 	INCY = 1;
 
-	dcopy_(&N, kxx, &INCX, lkxx, &INCY);
+	dcopy_(&Nl, kxx, &INCX, lkxx, &INCY);
 
 	for (i = 0; i < ns; i++) {
 		lkxx[i * ns + i] += 1E-7;

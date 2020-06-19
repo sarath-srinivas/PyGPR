@@ -34,16 +34,32 @@ static void f_2d(const double *x, unsigned long ns, double *y, int fno)
 	}
 }
 
-double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int seed)
+static void f_nd(double *y, const double *x, unsigned long ns, unsigned int dim)
+{
+	double x1, x2, r;
+	unsigned long i, k;
+
+	for (i = 0; i < ns; i++) {
+
+		r = 0;
+		for (k = 0; k < dim; k++) {
+
+			r += x[dim * i + k];
+
+			y[i] = exp(-r * r);
+		}
+	}
+}
+
+double test_gpr_interpolate(unsigned long ns, unsigned long np, unsigned int dim, int seed)
 {
 	double *x, *xp, *y, *yp, *yt, *p, *var_yp, err;
-	unsigned int dim, npar;
-	unsigned long i, j;
+	unsigned int npar;
+	unsigned long i, j, k;
 
-	printf("test_gpr_interpolate(nke = %lu, nq = %lu):\n", ns, np);
+	printf("test_gpr_interpolate(nke = %lu, nq = %lu, dim = %u):\n", ns, np, dim);
 
-	dim = 2;
-	npar = 3;
+	npar = dim + 1;
 
 	x = malloc(dim * ns * sizeof(double));
 	assert(x);
@@ -68,19 +84,21 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 
 	srand(seed);
 	for (i = 0; i < ns; i++) {
-		x[dim * i + 0] = rand() / (RAND_MAX + 1.0);
-		x[dim * i + 1] = rand() / (RAND_MAX + 1.0);
+		for (k = 0; k < dim; k++) {
+			x[dim * i + k] = rand() / (RAND_MAX + 1.0);
+		}
 	}
 
-	f_2d(x, ns, y, 1);
+	f_nd(y, x, ns, dim);
 
 	srand(seed + 1232);
 	for (i = 0; i < np; i++) {
-		xp[dim * i + 0] = rand() / (RAND_MAX + 1.0);
-		xp[dim * i + 1] = rand() / (RAND_MAX + 1.0);
+		for (k = 0; k < dim; k++) {
+			xp[dim * i + k] = rand() / (RAND_MAX + 1.0);
+		}
 	}
 
-	f_2d(xp, np, yt, 1);
+	f_nd(yt, xp, np, dim);
 
 	for (i = 0; i < npar; i++) {
 		p[i] = 1.0;
@@ -89,6 +107,8 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, int fno, int see
 	/*
 	gpr_interpolate(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1);
 	*/
+
+	printf("GPR INTERPOLATE:\n");
 
 	gpr_interpolate_wrap(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1, get_krn_se_ard,
 			     get_dkrn_se_ard, NULL);
@@ -126,7 +146,7 @@ void test_lib_gpr(void)
 	nx = 50;
 	ns = 100;
 
-	verify(test_gpr_interpolate(10, 100, 1, 34366), 1E-7);
+	verify(test_gpr_interpolate(10, 100, 2, 34366), 1E-7);
 
 	verify(test_get_dkrn_se_ard(0, dim, nx, 1e-6, 343), 1E-6);
 	verify(test_get_dkrn_se_ard(1, dim, nx, 1e-6, 343), 1E-6);
