@@ -18,22 +18,6 @@ static int verify(double terr, double tol)
 	return ret;
 }
 
-static void f_2d(const double *x, unsigned long ns, double *y, int fno)
-{
-	double x1, x2;
-	unsigned long i;
-	unsigned int dim;
-
-	dim = 2;
-
-	for (i = 0; i < ns; i++) {
-		x1 = x[dim * i + 0];
-		x2 = x[dim * i + 1];
-
-		y[i] = x1 * sin(x2) + x2 * sin(x1);
-	}
-}
-
 static void f_nd(double *y, const double *x, unsigned long ns, unsigned int dim)
 {
 	double x1, x2, r;
