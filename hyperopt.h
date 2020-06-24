@@ -18,13 +18,15 @@ struct gpr_dat {
 	void *covar_args;
 };
 
-void get_hyper_param_ard(
-    double *p, unsigned int np, double *x, double *y, unsigned long ns, unsigned int dim,
-    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
-	       unsigned int dim, const double *p, unsigned int npar, void *dat),
-    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
-		   unsigned int dim, const double *p, unsigned int np, void *dat),
-    void *dat);
+void get_hyper_param_ard(double *p, unsigned int np, const double *x, const double *y,
+			 unsigned long ns, unsigned int dim,
+			 void covar(double *krn, const double *x, const double *xp,
+				    unsigned long nx, unsigned long nxp, unsigned int dim,
+				    const double *p, unsigned int npar, void *dat),
+			 void covar_jac(double *dK, unsigned int k, const double *x,
+					const double *kxx, unsigned long nx, unsigned int dim,
+					const double *p, unsigned int np, void *dat),
+			 void *dat);
 
 double get_f(const double *hp, unsigned long nhp, void *data);
 void get_f_jac(double *f, double *jac, const double *hp, unsigned long nhp, void *data);

@@ -115,4 +115,42 @@ def get_covar(x, covar, args):
     return kxx
 
 
+#void gpr_interpolate_experts(double *yp, double *var_yp, const double *xp, unsigned long np,
+#			     const double *x, const double *y, unsigned long ns, unsigned long nc,
+#			     unsigned int dim, double *hp, unsigned long nhp, int is_opt,
+#			     void covar(double *krn, const double *x, const double *xp,
+#					unsigned long nx, unsigned long nxp, unsigned int dim,
+#					const double *p, unsigned int npar, void *dat),
+#			     void covar_jac(double *dK, unsigned int k, const double *x,
+#					    const double *kxx, unsigned long nx, unsigned int dim,
+#					    const double *p, unsigned int np, void *dat),
+#			     void *dat, unsigned int gate);
+
+lib.gpr_interpolate_experts.argtypes = [arr, arr, arr, ul, arr, arr, ul, ul, ui, arr, ul, si, covar_fptr, covar_jac_fptr, cvoid, ui]
+lib.gpr_interpolate_experts.restype = cvoid 
+
+gates = {'PoE' : 0, 
+         'gPoE' : 1,
+         'rBCM' : 2 }
+
+
+def interpolate_experts(xt, x, y, nc, hp, is_opt=1, krn='exp', gate='PoE'):
+    nt = xt.shape[0]
+    ns = x.shape[0]
+    dim = x.shape[1]
+    nsc = ns / nc
+    nhp = hp.shape[0]
+    nhps = nhp / nc
+
+    assert ns % nc == 0
+    assert nhp % nc == 0
+
+    yt = np.empty(nt, dtype=np.float64)
+
+    var_yt = np.empty(nt * nt, dtype=np.float64)
+
+    lib.gpr_interpolate_experts(yt, var_yt, xt.ravel(), nt, x.ravel(), y, ns, nc, dim, hp, nhp, is_opt, covar_fptr(covars[krn]),
+            covar_jac_fptr(covar_jacs[krn]), None, gates[gate])
+
+    return [yt, var_yt.reshape(nt,nt)]
 

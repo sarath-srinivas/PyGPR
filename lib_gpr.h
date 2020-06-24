@@ -19,9 +19,15 @@
 
 #include "cv.h"
 
+/* DISTRIBUTED GPR */
+
+#include "distr_gpr.h"
+
 /* TESTS */
 
 double test_gpr_interpolate(unsigned long ns, unsigned long np, unsigned int dim, int seed);
+double test_gpr_interpolate_experts(unsigned long nsc, unsigned long nc, unsigned long np,
+				    unsigned int dim, double min_dist, unsigned int gate, int seed);
 void test_lib_gpr(void);
 
 /* UPDATE HYPERPARAM */

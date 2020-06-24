@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <lib_rng/lib_rng.h>
 #include "lib_gpr.h"
 
 static int verify(double terr, double tol)
@@ -121,16 +122,135 @@ double test_gpr_interpolate(unsigned long ns, unsigned long np, unsigned int dim
 	return err;
 }
 
+double test_gpr_interpolate_experts(unsigned long nsc, unsigned long nc, unsigned long np,
+				    unsigned int dim, double min_dist, unsigned int gate, int seed)
+{
+	double *x, *gx, *xp, *y, *yp, *yt, *p, *var_yp, err, *xc, *st, *en;
+	unsigned int npar;
+	unsigned long i, j, k, ns;
+	long count;
+
+	printf(
+	    "test_gpr_interpolate_experts(nsc = %lu, nc = %lu, np = %lu, dim = %u, gate = %u):\n",
+	    nsc, nc, np, dim, gate);
+
+	npar = nc * (dim + 1);
+
+	ns = nsc * nc;
+
+	x = malloc(3 * dim * ns * sizeof(double));
+	assert(x);
+
+	xc = malloc(dim * nc * sizeof(double));
+	assert(xc);
+
+	gx = malloc(dim * ns * sizeof(double));
+	assert(gx);
+
+	xp = malloc(dim * np * sizeof(double));
+	assert(xp);
+
+	y = malloc(ns * sizeof(double));
+	assert(y);
+
+	yp = malloc(np * sizeof(double));
+	assert(yp);
+
+	yt = malloc(np * sizeof(double));
+	assert(yt);
+
+	p = malloc(npar * sizeof(double));
+	assert(p);
+
+	st = malloc(dim * sizeof(double));
+	assert(st);
+	en = malloc(dim * sizeof(double));
+	assert(en);
+
+	var_yp = malloc(np * np * sizeof(double));
+	assert(var_yp);
+
+	for (i = 0; i < dim; i++) {
+		st[i] = 0;
+		en[i] = 1.0;
+	}
+
+	fill_random(x, 3 * ns, dim, st, en, seed);
+
+	count = get_gibbs_hrdcr_samples(xc, nc, dim, st, en, min_dist, seed + 3535, 5000);
+
+	printf("COUNT:%ld\n", count);
+
+	fill_random_groups(gx, ns, xc, nc, x, 3 * ns, dim, st, en);
+
+	f_nd(y, gx, ns, dim);
+
+	fill_random(xp, np, dim, st, en, seed);
+
+	f_nd(yt, xp, np, dim);
+
+	for (i = 0; i < npar; i++) {
+		p[i] = 1.0;
+	}
+
+	/*
+	gpr_interpolate(xp, yp, np, x, y, ns, dim, p, npar, var_yp, 1);
+	*/
+
+	printf("GPR INTERPOLATE:\n");
+
+	gpr_interpolate_experts(yp, var_yp, xp, np, gx, y, ns, nc, dim, p, npar, 1, get_krn_se_ard,
+				get_dkrn_se_ard, NULL, gate);
+
+	err = 0;
+	for (i = 0; i < np; i++) {
+		err += fabs(yp[i] - yt[i]);
+	}
+
+	if (DEBUG) {
+		for (i = 0; i < np; i++) {
+			printf("%+.15E %+.15E %+.15E %+.15E %+.15E %+.15E\n", xp[dim * i + 0],
+			       xp[dim * i + 1], yp[i], yt[i], sqrt(var_yp[i * np + i]),
+			       fabs(yp[i] - yt[i]));
+		}
+	}
+
+	free(var_yp);
+	free(en);
+	free(st);
+	free(p);
+	free(yt);
+	free(yp);
+	free(y);
+	free(xp);
+	free(gx);
+	free(xc);
+	free(x);
+
+	return err;
+}
+
 void test_lib_gpr(void)
 {
 	unsigned int dim;
-	unsigned long nx, ns;
+	unsigned long nx, ns, nsc, np, nc;
 
 	dim = 7;
 	nx = 50;
 	ns = 100;
 
 	verify(test_gpr_interpolate(10, 100, 2, 34366), 1E-7);
+
+	nsc = 10;
+	nc = 4;
+	np = 100;
+	dim = 2;
+
+	verify(test_gpr_interpolate_experts(nsc, ns, np, dim, 0.3, 0, 34366), 1E-7);
+	verify(test_gpr_interpolate_experts(nsc, ns, np, dim, 0.3, 1, 34366), 1E-7);
+	verify(test_gpr_interpolate_experts(nsc, ns, np, dim, 0.3, 2, 34366), 1E-7);
+
+	dim = 7;
 
 	verify(test_get_dkrn_se_ard(0, dim, nx, 1e-6, 343), 1E-6);
 	verify(test_get_dkrn_se_ard(1, dim, nx, 1e-6, 343), 1E-6);
