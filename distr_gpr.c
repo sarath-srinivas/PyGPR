@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <blas/lapack.h>
 #include <blas/blas.h>
+#include <lib_rng/lib_rng.h>
 #include "lib_gpr.h"
 
 static void get_tensor_product(double *AB, const double *A, const double *B, unsigned long n)
@@ -25,21 +26,30 @@ static void get_tensor_product(double *AB, const double *A, const double *B, uns
 	dsbmv_(&UPLO, &N, &K, &ALPHA, A, &LDA, B, &INCX, &BETA, AB, &INCY);
 }
 
-void gpr_interpolate_experts(double *yp, double *var_yp, const double *xp, unsigned long np,
-			     const double *x, const double *y, unsigned long ns, unsigned long nc,
-			     unsigned int dim, double *hp, unsigned long nhp, int is_opt,
-			     void covar(double *krn, const double *x, const double *xp,
-					unsigned long nx, unsigned long nxp, unsigned int dim,
-					const double *p, unsigned int npar, void *dat),
-			     void covar_jac(double *dK, unsigned int k, const double *x,
-					    const double *kxx, unsigned long nx, unsigned int dim,
-					    const double *p, unsigned int np, void *dat),
-			     void *dat, unsigned int gate)
+static void get_indicator(unsigned long *ind, const double *xp, unsigned long np, unsigned int dim,
+			  const double *xc, unsigned long nc)
+{
+	unsigned long i;
+
+	for (i = 0; i < np; i++) {
+		ind[i] = get_near_idx(&xp[i * dim], dim, xc, nc);
+	}
+}
+
+void gpr_interpolate_experts(
+    double *yp, double *var_yp, const double *xp, unsigned long np, const double *x,
+    const double *y, unsigned long ns, const double *xc, unsigned long nc, unsigned int dim,
+    double *hp, unsigned long nhp, int is_opt,
+    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+	       unsigned int dim, const double *p, unsigned int npar, void *dat),
+    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
+		   unsigned int dim, const double *p, unsigned int np, void *dat),
+    void *dat, unsigned int gate)
 
 {
 
 	double *ypc, *var_ypc;
-	unsigned long i, nsc, nhpc;
+	unsigned long i, nsc, nhpc, *ind;
 
 	ypc = malloc(np * nc * sizeof(double));
 	assert(ypc);
@@ -64,9 +74,20 @@ void gpr_interpolate_experts(double *yp, double *var_yp, const double *xp, unsig
 
 		weighted_prod_experts(yp, var_yp, np, ypc, var_ypc, np * nc, covar, xp, dim, hp,
 				      nhp, dat);
-	}
 
-	else if (gate == 2) {
+	} else if (gate == 2) {
+
+		ind = malloc(np * sizeof(unsigned long));
+		assert(ind);
+
+		get_indicator(ind, xp, np, dim, xc, nc);
+
+		bcm_experts(yp, var_yp, np, ypc, var_ypc, np * nc, covar, xp, dim, hp, nhp, ind,
+			    dat);
+
+		free(ind);
+
+	} else if (gate == 3) {
 
 		rbcm_experts(yp, var_yp, np, ypc, var_ypc, np * nc, covar, xp, dim, hp, nhp, dat);
 	}
@@ -145,7 +166,7 @@ void weighted_prod_experts(double *yp, double *var_yp, unsigned long np, const d
 	unsigned long i, k, nc, nhps;
 	long Nl;
 	int N, INCX, INCY;
-	double *beta, *prec, tmp, *prec_sum, DA, *wt, *yp_sum, eps;
+	double *beta, *prec, tmp, *prec_sum, DA, *wt, *yp_sum, eps, *prior_prec, *prior_prec_sum;
 
 	nc = npc / np;
 	nhps = nhp / nc;
@@ -156,6 +177,10 @@ void weighted_prod_experts(double *yp, double *var_yp, unsigned long np, const d
 	assert(beta);
 	yp_sum = calloc(np, sizeof(double));
 	assert(yp_sum);
+	prior_prec = calloc(np * nc, sizeof(double));
+	assert(prior_prec);
+	prior_prec_sum = calloc(np, sizeof(double));
+	assert(prior_prec_sum);
 	wt = malloc(np * sizeof(double));
 	assert(wt);
 	prec_sum = calloc(np, sizeof(double));
@@ -163,22 +188,35 @@ void weighted_prod_experts(double *yp, double *var_yp, unsigned long np, const d
 
 	eps = 1E-7;
 
-	for (k = 0; k < nc; k++) {
-		for (i = 0; i < np; i++) {
-
-			prec[k * np + i] = 1 / (var_ypc[np * np * k + i * np + i] + eps);
-
-			covar(&tmp, &xp[i], &xp[i], 1, 1, dim, &hp[k * nhps], nhps, dat);
-
-			beta[k * np + i] = 0.5 * (log(tmp) + log(prec[k * np + i]));
-		}
-	}
-
 	Nl = np;
 	N = (int)np;
 	DA = 1.0;
 	INCX = 1;
 	INCY = 1;
+
+	for (k = 0; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			covar(&tmp, &xp[i * dim], &xp[i * dim], 1, 1, dim, &hp[k * nhps], nhps,
+			      dat);
+
+			prior_prec[k * np + i] = 1 / tmp;
+		}
+	}
+
+	for (k = 0; k < nc; k++) {
+
+		daxpy_(&Nl, &DA, &prior_prec[k * np], &INCX, prior_prec_sum, &INCY);
+	}
+
+	for (k = 0; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			prec[k * np + i] = 1 / (var_ypc[np * np * k + i * np + i] + eps);
+
+			beta[k * np + i] = -0.5 * (log(prior_prec_sum[i]) - log(prec[k * np + i]));
+		}
+	}
 
 	for (k = 0; k < nc; k++) {
 
@@ -203,8 +241,80 @@ void weighted_prod_experts(double *yp, double *var_yp, unsigned long np, const d
 
 	free(prec_sum);
 	free(wt);
+	free(prior_prec_sum);
+	free(prior_prec);
 	free(yp_sum);
 	free(beta);
+	free(prec);
+}
+
+void bcm_experts(double *yp, double *var_yp, unsigned long np, const double *ypc,
+		 const double *var_ypc, unsigned long npc,
+		 void covar(double *krn, const double *x, const double *xp, unsigned long nx,
+			    unsigned long nxp, unsigned int dim, const double *p, unsigned int npar,
+			    void *dat),
+		 const double *xp, unsigned int dim, const double *hp, unsigned long nhp,
+		 const unsigned long *ind, void *dat)
+
+{
+	unsigned long i, k, nc, nhps;
+	long Nl;
+	int N, INCX, INCY;
+	double *prec, *prec_sum, DA, *wt, tmp, *yp_sum, *prior_prec, eps;
+
+	nc = npc / np;
+	nhps = nhp / nc;
+
+	prec = malloc(np * nc * sizeof(double));
+	assert(prec);
+	prior_prec = malloc(np * nc * sizeof(double));
+	assert(prior_prec);
+	yp_sum = calloc(np, sizeof(double));
+	assert(yp_sum);
+	prec_sum = calloc(np, sizeof(double));
+	assert(prec_sum);
+
+	eps = 1E-7;
+
+	for (k = 0; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			prec[k * np + i] = 1 / (var_ypc[np * np * k + i * np + i] + eps);
+
+			covar(&tmp, &xp[i * dim], &xp[i * dim], 1, 1, dim, &hp[k * nhps], nhps,
+			      dat);
+
+			prior_prec[k * np + i] = prec[k * np + i] - (1 / tmp);
+		}
+	}
+
+	Nl = np;
+	N = (int)np;
+	DA = 1.0;
+	INCX = 1;
+	INCY = 1;
+
+	for (k = 0; k < nc; k++) {
+		get_tensor_product(yp, &ypc[k * np], &prec[k * np], np);
+
+		daxpy_(&Nl, &DA, yp, &INCX, yp_sum, &INCY);
+
+		daxpy_(&Nl, &DA, &prior_prec[k * np], &INCX, prec_sum, &INCY);
+	}
+
+	for (i = 0; i < np; i++) {
+		prec_sum[i] = 1 / prec_sum[i];
+	}
+
+	get_tensor_product(yp, prec_sum, yp_sum, np);
+
+	for (i = 0; i < np; i++) {
+		var_yp[i * np + i] = prec_sum[i];
+	}
+
+	free(prior_prec);
+	free(prec_sum);
+	free(yp_sum);
 	free(prec);
 }
 
@@ -218,21 +328,23 @@ void rbcm_experts(double *yp, double *var_yp, unsigned long np, const double *yp
 
 {
 	unsigned long i, k, nc, nhps;
-	long Nl;
+	long Nl, Ml;
 	int N, INCX, INCY;
-	double *beta, *prec, *prec_sum, DA, *wt, tmp, *yp_sum, *prior_prec, eps;
+	double *beta, *prec, tmp, *prec_sum, DA, *wt, *yp_sum, eps, *prior_prec, *prior_prec_sum;
 
 	nc = npc / np;
 	nhps = nhp / nc;
 
 	prec = malloc(np * nc * sizeof(double));
 	assert(prec);
-	prior_prec = malloc(np * nc * sizeof(double));
-	assert(prior_prec);
 	beta = malloc(np * nc * sizeof(double));
 	assert(beta);
 	yp_sum = calloc(np, sizeof(double));
 	assert(yp_sum);
+	prior_prec = calloc(np * nc, sizeof(double));
+	assert(prior_prec);
+	prior_prec_sum = calloc(np, sizeof(double));
+	assert(prior_prec_sum);
 	wt = malloc(np * sizeof(double));
 	assert(wt);
 	prec_sum = calloc(np, sizeof(double));
@@ -240,24 +352,38 @@ void rbcm_experts(double *yp, double *var_yp, unsigned long np, const double *yp
 
 	eps = 1E-7;
 
+	Nl = np;
+	Ml = np * nc;
+	N = (int)np;
+	DA = 1.0;
+	INCX = 1;
+	INCY = 1;
+
+	for (k = 0; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			covar(&tmp, &xp[i * dim], &xp[i * dim], 1, 1, dim, &hp[k * nhps], nhps,
+			      dat);
+
+			prior_prec[k * np + i] = 1 / tmp;
+		}
+	}
+
+	for (k = 0; k < nc; k++) {
+
+		daxpy_(&Nl, &DA, &prior_prec[k * np], &INCX, prior_prec_sum, &INCY);
+	}
+
 	for (k = 0; k < nc; k++) {
 		for (i = 0; i < np; i++) {
 
 			prec[k * np + i] = 1 / (var_ypc[np * np * k + i * np + i] + eps);
 
-			covar(&tmp, &xp[i], &xp[i], 1, 1, dim, &hp[k * nhps], nhps, dat);
+			beta[k * np + i] = -0.5 * (log(prior_prec_sum[i]) - log(prec[k * np + i]));
 
-			prior_prec[k * np + i] = prec[k * np + i] - (1 / tmp);
-
-			beta[k * np + i] = 0.5 * (log(tmp) + log(prec[k * np + i]));
+			prior_prec[k * np + i] = prec[k * np + i] - prior_prec[k * np + i];
 		}
 	}
-
-	Nl = np;
-	N = (int)np;
-	DA = 1.0;
-	INCX = 1;
-	INCY = 1;
 
 	for (k = 0; k < nc; k++) {
 
@@ -284,6 +410,8 @@ void rbcm_experts(double *yp, double *var_yp, unsigned long np, const double *yp
 
 	free(prec_sum);
 	free(wt);
+	free(prior_prec_sum);
+	free(prior_prec);
 	free(yp_sum);
 	free(beta);
 	free(prec);

@@ -126,15 +126,16 @@ def get_covar(x, covar, args):
 #					    const double *p, unsigned int np, void *dat),
 #			     void *dat, unsigned int gate);
 
-lib.gpr_interpolate_experts.argtypes = [arr, arr, arr, ul, arr, arr, ul, ul, ui, arr, ul, si, covar_fptr, covar_jac_fptr, cvoid, ui]
+lib.gpr_interpolate_experts.argtypes = [arr, arr, arr, ul, arr, arr, ul, arr, ul, ui, arr, ul, si, covar_fptr, covar_jac_fptr, cvoid, ui]
 lib.gpr_interpolate_experts.restype = cvoid 
 
 gates = {'PoE' : 0, 
          'gPoE' : 1,
-         'rBCM' : 2 }
+         'BCM' : 2,
+         'rBCM' : 3 }
 
 
-def interpolate_experts(xt, x, y, nc, hp, is_opt=1, krn='exp', gate='PoE'):
+def interpolate_experts(xt, x, y, xc, nc, hp, is_opt=1, krn='exp', gate='PoE'):
     nt = xt.shape[0]
     ns = x.shape[0]
     dim = x.shape[1]
@@ -149,7 +150,7 @@ def interpolate_experts(xt, x, y, nc, hp, is_opt=1, krn='exp', gate='PoE'):
 
     var_yt = np.empty(nt * nt, dtype=np.float64)
 
-    lib.gpr_interpolate_experts(yt, var_yt, xt.ravel(), nt, x.ravel(), y, ns, nc, dim, hp, nhp, is_opt, covar_fptr(covars[krn]),
+    lib.gpr_interpolate_experts(yt, var_yt, xt.ravel(), nt, x.ravel(), y, ns, xc.ravel(), nc, dim, hp, nhp, is_opt, covar_fptr(covars[krn]),
             covar_jac_fptr(covar_jacs[krn]), None, gates[gate])
 
     return [yt, var_yt.reshape(nt,nt)]

@@ -199,8 +199,8 @@ double test_gpr_interpolate_experts(unsigned long nsc, unsigned long nc, unsigne
 
 	printf("GPR INTERPOLATE:\n");
 
-	gpr_interpolate_experts(yp, var_yp, xp, np, gx, y, ns, nc, dim, p, npar, 1, get_krn_se_ard,
-				get_dkrn_se_ard, NULL, gate);
+	gpr_interpolate_experts(yp, var_yp, xp, np, gx, y, ns, xc, nc, dim, p, npar, 1,
+				get_krn_se_ard, get_dkrn_se_ard, NULL, gate);
 
 	err = 0;
 	for (i = 0; i < np; i++) {
