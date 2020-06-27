@@ -36,6 +36,185 @@ static void get_indicator(unsigned long *ind, const double *xp, unsigned long np
 	}
 }
 
+static void augment(double *x12, double *y12, const double *x1, const double *y1, unsigned long n1,
+		    const double *x2, const double *y2, unsigned long n2, unsigned int dim)
+{
+
+	unsigned long i, k;
+
+	for (i = 0; i < n1; i++) {
+		for (k = 0; k < dim; k++) {
+			x12[i * dim + k] = x1[i * dim + k];
+		}
+
+		y12[i] = y1[i];
+	}
+
+	for (i = 0; i < n2; i++) {
+		for (k = 0; k < dim; k++) {
+			x12[(i + n1) * dim + k] = x2[i * dim + k];
+		}
+
+		y12[i + n1] = y2[i];
+	}
+}
+
+void gpr_interpolate_grbcm(
+    double *yp, double *var_yp, const double *xp, unsigned long np, const double *xl,
+    const double *y, unsigned long ns, const double *xg, const double *yg, unsigned long ng,
+    unsigned long nc, unsigned int dim, double *hpl, unsigned long nhpl, double *hpg,
+    unsigned long nhpg, int is_opt,
+    void covar(double *krn, const double *x, const double *xp, unsigned long nx, unsigned long nxp,
+	       unsigned int dim, const double *p, unsigned int npar, void *dat),
+    void covar_jac(double *dK, unsigned int k, const double *x, const double *kxx, unsigned long nx,
+		   unsigned int dim, const double *p, unsigned int np, void *dat),
+    void *dat)
+
+{
+
+	double *ypl, *var_ypl, *ypg, *var_ypg, *xa, *ya;
+	unsigned long i, nsc, nhp, *ind, na;
+
+	ypg = malloc(np * sizeof(double));
+	assert(ypg);
+	var_ypg = malloc(np * np * sizeof(double));
+	assert(var_ypg);
+
+	ypl = malloc(np * nc * sizeof(double));
+	assert(ypl);
+	var_ypl = malloc(np * np * nc * sizeof(double));
+	assert(var_ypl);
+
+	nsc = ns / nc;
+	nhp = nhpl / nc;
+	na = ng + nsc;
+
+	xa = malloc(na * dim * sizeof(double));
+	assert(xa);
+	ya = malloc(na * sizeof(double));
+	assert(ya);
+
+	gpr_interpolate_wrap(xp, ypg, np, xg, yg, ng, dim, hpg, nhpg, var_ypg, is_opt, covar,
+			     covar_jac, dat);
+
+	for (i = 0; i < nc; i++) {
+
+		augment(xa, ya, xg, yg, ng, &xl[i * nsc * dim], &y[i * nsc], nsc, dim);
+
+		gpr_interpolate_wrap(xp, &ypl[i * np], np, xa, ya, na, dim, &hpl[i * nhp], nhp,
+				     &var_ypl[i * np * np], is_opt, covar, covar_jac, dat);
+	}
+
+	grbcm_experts(yp, var_yp, np, ypg, var_ypg, ypl, var_ypl, np * nc);
+
+	free(ya);
+	free(xa);
+	free(var_ypl);
+	free(ypl);
+	free(var_ypg);
+	free(ypg);
+}
+
+void grbcm_experts(double *yp, double *var_yp, unsigned long np, const double *ypg,
+		   const double *var_ypg, const double *ypl, const double *var_ypl,
+		   unsigned long nl)
+
+{
+	unsigned long i, k, nc, nhps;
+	long Nl, Ml;
+	int N, INCX, INCY;
+	double *beta, *beta_sum, *prec_gl, *prec_g, tmp, *prec_sum, DA, *wt, *yp_sum, eps;
+
+	nc = nl / np;
+
+	prec_gl = malloc(np * nc * sizeof(double));
+	assert(prec_gl);
+	prec_g = malloc(np * sizeof(double));
+	assert(prec_g);
+
+	beta = malloc(np * nc * sizeof(double));
+	assert(beta);
+	wt = malloc(np * sizeof(double));
+	assert(wt);
+
+	yp_sum = calloc(np, sizeof(double));
+	assert(yp_sum);
+	prec_sum = calloc(np, sizeof(double));
+	assert(prec_sum);
+	beta_sum = calloc(np, sizeof(double));
+	assert(beta_sum);
+
+	eps = 1E-7;
+
+	Nl = np;
+	Ml = np * nc;
+	N = (int)np;
+	DA = 1.0;
+	INCX = 1;
+	INCY = 1;
+
+	for (i = 0; i < np; i++) {
+
+		prec_g[i] = 1 / (var_ypg[i * np + i] + eps);
+		beta[i] = 1;
+	}
+
+	for (k = 0; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			prec_gl[k * np + i] = 1 / (var_ypl[np * np * k + i * np + i] + eps);
+		}
+	}
+
+	for (k = 1; k < nc; k++) {
+		for (i = 0; i < np; i++) {
+
+			beta[k * np + i] = -0.5 * (log(prec_g[i]) - log(prec_gl[k * np + i]));
+		}
+
+		daxpy_(&Nl, &DA, &beta[k * np], &INCX, beta_sum, &INCY);
+	}
+
+	for (k = 0; k < nc; k++) {
+
+		get_tensor_product(wt, &beta[k * np], &prec_gl[k * np], np);
+
+		get_tensor_product(yp, wt, &ypl[k * np], np);
+
+		daxpy_(&Nl, &DA, yp, &INCX, yp_sum, &INCY);
+
+		daxpy_(&Nl, &DA, wt, &INCX, prec_sum, &INCY);
+	}
+
+	get_tensor_product(wt, beta_sum, prec_g, np);
+
+	get_tensor_product(yp, wt, ypg, np);
+
+	DA = -1.0;
+
+	daxpy_(&Nl, &DA, yp, &INCX, yp_sum, &INCY);
+
+	daxpy_(&Nl, &DA, wt, &INCX, prec_sum, &INCY);
+
+	for (i = 0; i < np; i++) {
+		prec_sum[i] = 1 / prec_sum[i];
+	}
+
+	get_tensor_product(yp, prec_sum, yp_sum, np);
+
+	for (i = 0; i < np; i++) {
+		var_yp[i * np + i] = prec_sum[i];
+	}
+
+	free(prec_sum);
+	free(yp_sum);
+	free(wt);
+	free(beta);
+	free(beta_sum);
+	free(prec_g);
+	free(prec_gl);
+}
+
 void gpr_interpolate_experts(
     double *yp, double *var_yp, const double *xp, unsigned long np, const double *x,
     const double *y, unsigned long ns, const double *xc, unsigned long nc, unsigned int dim,
