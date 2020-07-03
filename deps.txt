@@ -1,2 +1,0 @@
-lib_ode
-lib_rng
