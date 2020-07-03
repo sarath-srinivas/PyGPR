@@ -155,3 +155,32 @@ def interpolate_experts(xt, x, y, xc, nc, hp, is_opt=1, krn='exp', gate='PoE'):
 
     return [yt, var_yt.reshape(nt,nt)]
 
+
+def diagnostic(yp, yt, covar, is_diag=False):
+    dgn = {}
+    var = np.diag(covar)
+    n = yp.shape[0]
+    err = yp - yt
+
+    dgn['RMSE'] = np.sqrt(np.mean(np.sum(err**2)))
+
+    dgn['SDSUM'] = np.sqrt(np.mean(np.sum(var)))
+
+    dgn['RCHI-SQ'] = (1.0/n) * np.sum((err**2)/var)
+
+    if is_diag == True:
+       dgn['LLHD'] =  -0.5 * np.sum(np.log(var)) - 0.5 * np.log(2 * np.pi) - n * dgn['RCHI-SQ']
+    else:
+       eig = np.linalg.eigvalsh(covar)
+       sol = np.linalg.solve(covar, err)
+       md = np.dot(err, sol)
+
+       dgn['LLHD'] = -0.5 * np.sum(np.log(eig)) - 0.5 * np.log(2 * np.pi) - md
+
+       dgn['MD'] = (1.0/n) * md
+
+    return dgn
+
+
+
+
