@@ -1,6 +1,7 @@
 import torch as tc
 import numpy as np
 import scipy.optimize as opt
+import matplotlib.pyplot as plt
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
@@ -21,6 +22,8 @@ class GPR(object):
         self.wt = NotImplemented
         self.krnchd = NotImplemented
 
+        self.dgn = {}
+
     def train(self, method='Nelder-Mead'):
 
         res = opt.minimize(log_likelihood,
@@ -28,6 +31,9 @@ class GPR(object):
                            args=(self.cov, self.x, self.y),
                            method=method)
         self.hp = res.x
+        self.llhd = res.fun
+        self.jac_llhd = jac_log_likelihood(self.hp, self.cov, self.x, self.y,
+                                           **self.args)
 
         return res
 
@@ -52,6 +58,61 @@ class GPR(object):
             return ys, covars
 
         return interp_fun
+
+    def diagnostics(self, xs, ys, covar, ya, diag=False):
+        var = tc.diag(covar)
+        n = ys.shape[0]
+        err = ys - ya
+
+        self.dgn['RMSE'] = tc.sqrt(tc.mean(tc.sum(err**2)))
+        self.dgn['SDSUM'] = tc.sqrt(tc.mean(tc.sum(var)))
+        self.dgn['RCHI-SQ'] = (1.0 / n) * tc.sum((err**2) / var)
+
+        if diag == True:
+            self.dgn['LLHD'] = -0.5 * tc.sum(np.log(var)) \
+                    - 0.5 * tc.log( 2 * np.pi) - n * self.dgn['RCHI-SQ']
+        else:
+            eig, evec = tc.symeig(covar)
+            sol, lu = tc.solve(err[:, np.newaxis], covar)
+            md = tc.dot(err, sol.squeeze_())
+            self.dgn['LLHD'] = -0.5 * tc.sum(tc.log(eig)) \
+                    - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
+            self.dgn['MD'] = (1.0 / n) * md
+
+    def plot(self, xs, ys, covars, ya, diag=False):
+        if diag:
+            sig = tc.sqrt(covars)
+        else:
+            sig = tc.sqrt(tc.diag(covars))
+
+        min_ys = tc.min(ys)
+        max_ys = tc.max(ys)
+
+        fig, ax = plt.subplots(2, 2)
+
+        ax[0, 0].scatter(ys, ya, color='red')
+        ax[0, 0].plot([min_ys, max_ys], [min_ys, max_ys])
+        ax[0, 0].axis('equal')
+        ax[0, 0].set(title='Prediction Vs Exact',
+                     xlabel='Y Predicted',
+                     ylabel='Y actual')
+
+        ax[0, 1].hist(tc.log(sig))
+        ax[0, 1].set(title='$\sigma$-Predicted',
+                     xlabel='$log(\sigma)$',
+                     ylabel='Frequency')
+
+        ax[1, 0].scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
+        ax[1, 0].scatter(range(0, len(self.hp)),
+                         self.jac_llhd,
+                         label='$dL/d\\theta$')
+        ax[1, 0].set(title='Derivative and hyperparam', xlabel='S.No')
+        ax[1, 0].legend()
+
+        ax[1, 1].hist(tc.log(ys - ya))
+        ax[1, 1].set(title='Mean Squared Error',
+                     xlabel='MSE',
+                     ylabel='Frequency')
 
 
 def log_likelihood(hp, *args, **kwargs):

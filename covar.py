@@ -52,8 +52,10 @@ def d_sq_exp(x, krn, hp):
 
     dkrn = tc.empty([nhp, n, n], dtype=tc.float64)
 
+    krn = krn.sub(tc.eye(n).mul_(hp[1]**2))
+
     dkrn[0] = krn.mul((2.0 / hp[0]))
-    dkrn[1] = tc.eye(n, dtype=tc.float64)
+    dkrn[1] = tc.eye(n, dtype=tc.float64).mul_(2.0 * hp[1])
 
     xt = x.transpose(0, 1)
     diff = xt[:, :, np.newaxis] - xt[:, np.newaxis, :]
