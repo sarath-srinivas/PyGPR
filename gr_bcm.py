@@ -8,9 +8,17 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 
 
 class GRBCM(GPR):
-    def __init__(self, x, y, xc, cov, hp=None, **kargs):
+    def __init__(self, xl, yl, xg, yg, cov, hp=None, **kargs):
 
-        super().__init__(self, x, y, cov, hp, **kargs)
+        super().__init__(xl, yl, cov, hp, **kargs)
+
+        self.xg = tc.clone(xg)
+        self.yg = tc.clone(yg)
+
+        nc = xl.shape[0]
+        nls = xl.shape[1]
+        ng = self.xg.shape[0]
+        dim = self.xg.shape[1]
 
         if hp is None:
             tmp = self.hp
@@ -19,17 +27,27 @@ class GRBCM(GPR):
         else:
             self.hp.copy_(hp)
 
+        tmpx = tc.empty([nc, ng, dim])
+        tmpy = tc.empty([nc, ng])
 
-def sample_with_repulsion(n, dim, mins, maxs, min_dist, max_count=5000):
+        tmpx.copy_(self.xg)
+        tmpy.copy_(self.yg)
 
-    xc = tc.empty([n, dim])
+        self.x = tc.cat((tmpx, xl), dim=1)
+        self.y = tc.cat((tmpy, yl), dim=1)
+
+
+def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
+
+    dim = len(mins)
+    xc = tc.empty([max_count, dim])
 
     xc[0, :] = mins + tc.rand(1, dim).mul_(maxs - mins)
 
     k = tc.tensor(1, dtype=tc.int64)
     count = tc.tensor(1, dtype=tc.int64)
 
-    while k < n:
+    while k < max_count and count < max_count:
 
         x = mins + tc.rand(1, dim).mul_(maxs - mins)
 
@@ -38,12 +56,11 @@ def sample_with_repulsion(n, dim, mins, maxs, min_dist, max_count=5000):
         if tc.all(dist.sub_(min_dist) > 1E-5):
             xc[k, :] = x
             k.add_(1)
+            count.mul_(0)
 
         count.add_(1)
 
-        assert count < max_count
-
-    return xc
+    return xc[:k, :]
 
 
 def euclidean_dist(x, y):
