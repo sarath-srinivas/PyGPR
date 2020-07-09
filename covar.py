@@ -13,8 +13,10 @@ def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
         hp = tc.ones(dim + 2)
         hp[1] = 1E-4
         return hp
-    else:
+    elif not tc.is_tensor(hp):
         hp = tc.tensor(hp)
+    else:
+        pass
 
     ls = hp[2:]
     sig = hp[0]
@@ -68,3 +70,6 @@ def d_sq_exp(x, krn, hp):
     dkrn[2:] = diff
 
     return dkrn
+
+
+covars = {'sq_exp': sq_exp}
