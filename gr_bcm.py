@@ -36,6 +36,9 @@ class GRBCM(GPR):
         self.x = tc.cat((tmpx, xl), dim=1)
         self.y = tc.cat((tmpy, yl), dim=1)
 
+    def train(self, method='Nelder-Mead', jac=False):
+        pass
+
 
 def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
 

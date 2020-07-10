@@ -24,16 +24,30 @@ class GPR(object):
 
         self.dgn = {}
 
-    def train(self, method='Nelder-Mead'):
+    def cost_fun(self, hp):
+        f = log_likelihood(self.x, self.y, hp, self.cov, **self.args)
+        return f
 
-        res = opt.minimize(log_likelihood,
-                           self.hp,
-                           args=(self.cov, self.x, self.y),
-                           method=method)
+    def jac_cost_fun(self, hp):
+        jac_f = jac_log_likelihood(self.x, self.y, hp, self.cov, **self.args)
+        return jac_f
+
+    def train(self, method='Nelder-Mead', jac=False):
+
+        if jac:
+            res = opt.minimize(self.cost_fun,
+                               self.hp,
+                               jac=self.jac_cost_fun,
+                               method=method)
+        else:
+            res = opt.minimize(self.cost_fun,
+                               self.hp,
+                               jac=False,
+                               method=method)
         self.hp = res.x
+
         self.llhd = res.fun
-        self.jac_llhd = jac_log_likelihood(self.hp, self.cov, self.x, self.y,
-                                           **self.args)
+        self.jac_llhd = res.jac
 
         return res
 
@@ -88,38 +102,42 @@ class GPR(object):
         min_ys = tc.min(ys)
         max_ys = tc.max(ys)
 
-        fig, ax = plt.subplots(2, 2)
+        fig = plt.figure(constrained_layout=True)
+        gs = fig.add_gridspec(2, 2, wspace=0.2, hspace=0.2)
 
-        ax[0, 0].scatter(ys, ya, color='red')
-        ax[0, 0].plot([min_ys, max_ys], [min_ys, max_ys])
-        ax[0, 0].axis('equal')
-        ax[0, 0].set(title='Prediction Vs Exact',
-                     xlabel='Y Predicted',
-                     ylabel='Y actual')
+        pred = fig.add_subplot(gs[0, 0])
+        sigma = fig.add_subplot(gs[0, 1])
+        hpar = fig.add_subplot(gs[1, 0].subgridspec(1, 2)[0])
+        jac = fig.add_subplot(gs[1, 0].subgridspec(1, 2)[1])
+        mse = fig.add_subplot(gs[1, 1])
 
-        ax[0, 1].hist(tc.log(sig))
-        ax[0, 1].set(title='$\sigma$-Predicted',
-                     xlabel='$log(\sigma)$',
-                     ylabel='Frequency')
+        pred.scatter(ys, ya, color='red')
+        pred.plot([min_ys, max_ys], [min_ys, max_ys])
+        pred.axis('equal')
+        pred.set(title='Prediction Vs Exact',
+                 xlabel='Y Predicted',
+                 ylabel='Y actual')
 
-        ax[1, 0].scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
-        ax[1, 0].scatter(range(0, len(self.hp)),
-                         self.jac_llhd,
-                         label='$dL/d\\theta$')
-        ax[1, 0].set(title='Derivative and hyperparam', xlabel='S.No')
-        ax[1, 0].legend()
+        sigma.hist(tc.log(sig))
+        sigma.set(title='$\sigma$-Predicted',
+                  xlabel='$log(\sigma)$',
+                  ylabel='Frequency')
 
-        ax[1, 1].hist(tc.log(ys - ya))
-        ax[1, 1].set(title='Mean Squared Error',
-                     xlabel='MSE',
-                     ylabel='Frequency')
+        hpar.scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
+        hpar.set(xlabel='S.No')
+        hpar.legend()
+
+        jac.scatter(range(0, len(self.hp)),
+                    np.log(self.jac_llhd),
+                    label='$dL/d\\theta$')
+        jac.set(xlabel='S.No')
+        jac.legend()
+
+        mse.hist(tc.log(ys - ya))
+        mse.set(title='Mean Squared Error', xlabel='MSE', ylabel='Frequency')
 
 
-def log_likelihood(hp, *args, **kwargs):
-    cov = args[0]
-
-    x = args[1]
-    y = args[2]
+def log_likelihood(x, y, hp, cov, **kwargs):
 
     krn = cov(x, hp=hp, **kwargs)
     krnchd = tc.cholesky(krn)
@@ -133,10 +151,7 @@ def log_likelihood(hp, *args, **kwargs):
     return llhd.numpy()
 
 
-def jac_log_likelihood(hp, *args, **kwargs):
-    cov = args[0]
-    x = args[1]
-    y = args[2]
+def jac_log_likelihood(x, y, hp, cov, **kwargs):
 
     krn, dkrn = cov(x, hp=hp, deriv=True, **kwargs)
     krnchd = tc.cholesky(krn)

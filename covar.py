@@ -4,6 +4,34 @@ import numpy as np
 tc.set_default_tensor_type(tc.DoubleTensor)
 
 
+def dist_square(x, xs=None):
+
+    if x.dim() == 2:
+        x.unsqueeze_(0)
+
+    x2 = tc.sum(x.square(), 2)
+
+    if xs is None:
+
+        sqd = -2.0 * tc.matmul(x, x.transpose(1, 2)) + x2.unsqueeze(2).add(
+            x2.unsqueeze(1))
+
+    else:
+        if xs.dim() == 2:
+            xs.unsqueeze_(0)
+
+        xs2 = tc.sum(xs.square(), 2)
+
+        sqd = -2.0 * tc.matmul(xs, x.transpose(1, 2)) + xs2.unsqueeze_(2).add(
+            x2.unsqueeze_(1))
+
+        xs.squeeze(0)
+
+    x.squeeze(0)
+
+    return sqd.squeeze(0)
+
+
 def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
 
     n = x.shape[0]
