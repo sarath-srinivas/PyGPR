@@ -2,12 +2,12 @@ import torch as tc
 import numpy as np
 
 tc.set_default_tensor_type(tc.DoubleTensor)
+tc.set_printoptions(precision=7, sci_mode=True)
 
 
 def dist_square(x, xs=None):
 
-    if x.dim() == 2:
-        x.unsqueeze_(0)
+    x = x.view((-1, x.shape[-2], x.shape[-1]))
 
     x2 = tc.sum(x.square(), 2)
 
@@ -17,57 +17,72 @@ def dist_square(x, xs=None):
             x2.unsqueeze(1))
 
     else:
-        if xs.dim() == 2:
-            xs.unsqueeze_(0)
+        xs = xs.view((-1, xs.shape[-2], xs.shape[-1]))
 
         xs2 = tc.sum(xs.square(), 2)
 
         sqd = -2.0 * tc.matmul(xs, x.transpose(1, 2)) + xs2.unsqueeze_(2).add(
             x2.unsqueeze_(1))
 
-        xs.squeeze(0)
+        xs.squeeze_(0)
 
-    x.squeeze(0)
+    x.squeeze_(0)
 
     return sqd.squeeze(0)
 
 
 def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
 
-    n = x.shape[0]
-    dim = x.shape[1]
+    x = x.view((-1, x.shape[-2], x.shape[-1]))
+
+    dim = x.shape[-1]
+    nc = x.shape[0]
 
     if hp is None:
-        hp = tc.ones(dim + 2)
-        hp[1] = 1E-4
+        hp = tc.ones([nc, dim + 2])
+        hp[:, 1].fill_(1E-4)
+        hp.squeeze_(0)
         return hp
     elif not tc.is_tensor(hp):
         hp = tc.tensor(hp)
     else:
         pass
 
-    ls = hp[2:]
-    sig = hp[0]
-    sig_noise = hp[1]
-    eps = 1e-5 + sig_noise.square()
+    hp = hp.view((nc, -1))
+    assert hp.dim() == 2
+
+    sig = hp[:, 0]
+    sig_noise = hp[:, 1]
+    ls = hp[:, 2:]
+    eps = sig_noise.square().add_(1e-5)
+    ls.unsqueeze_(1)
     xl = x.mul(ls)
-    x2 = tc.sum(xl.square(), 1)
 
     if xs is None:
-        sqd = 2.0 * tc.matmul(xl, xl.transpose(0, 1)) - (x2.reshape(-1, 1) +
-                                                         x2.reshape(1, -1))
+        sqd = dist_square(xl)
+
+        sqd = sqd.view((-1, sqd.shape[-2], sqd.shape[-1]))
+
         sqd.exp_()
-        sqd.mul_(sig.square())
-        sqd.add_(tc.eye(n).mul_(eps))
+        sqd.mul_(sig[:, None, None].square())
+
+        idt = tc.empty_like(sqd).copy_(tc.eye(sqd.shape[-1]))
+        idt.mul_(eps[:, None, None])
+        sqd.add_(idt)
 
     else:
+        xs = xs.view((-1, xs.shape[-2], xs.shape[-1]))
         xsl = xs.mul(ls)
-        xs2 = tc.sum(xsl.square(), 1)
 
-        sqd = 2.0 * tc.matmul(xsl, xl.transpose(0, 1)) - (xs2.reshape(-1, 1) +
-                                                          x2.reshape(1, -1))
+        sqd = dist_square(xl, xs=xsl)
+        sqd = sqd.view((-1, sqd.shape[-2], sqd.shape[-1]))
+
         sqd.exp_()
-        sqd.mul_(sig.square())
+        sqd.mul_(sig[:, None, None].square())
+
+    hp.squeeze_(0)
+
+    sqd.squeeze_(0)
 
     if deriv == False:
         return sqd
