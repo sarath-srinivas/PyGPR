@@ -22,6 +22,8 @@ class GPR(object):
         self.wt = NotImplemented
         self.krnchd = NotImplemented
 
+        self.need_upd = True
+
         self.dgn = {}
 
     def cost_fun(self, hp):
@@ -45,33 +47,33 @@ class GPR(object):
                                jac=False,
                                method=method)
         self.hp = res.x
+        self.need_upd = True
 
         self.llhd = res.fun
         self.jac_llhd = res.jac
 
         return res
 
-    def interpolant(self):
+    def interpolate(self, xs):
 
-        self.krn = self.cov(self.x, hp=self.hp, **self.args)
-        self.krnchd = tc.cholesky(self.krn)
-        self.wt = tc.squeeze(
-            tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
+        if self.need_upd:
+            self.krn = self.cov(self.x, hp=self.hp, **self.args)
+            self.krnchd = tc.cholesky(self.krn)
+            self.wt = tc.squeeze(
+                tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
+            self.need_upd = False
 
-        def interp_fun(xs):
-            krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
+        krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
 
-            ys = tc.mv(krns, self.wt)
+        ys = tc.mv(krns, self.wt)
 
-            krnss = self.cov(xs, hp=self.hp, **self.args)
+        krnss = self.cov(xs, hp=self.hp, **self.args)
 
-            lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
+        lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
 
-            covars = krnss - tc.mm(krns, lks)
+        covars = krnss - tc.mm(krns, lks)
 
-            return ys, covars
-
-        return interp_fun
+        return ys, covars
 
     def diagnostics(self, xs, ys, covar, ya, diag=False):
         var = tc.diag(covar)
@@ -107,8 +109,8 @@ class GPR(object):
 
         pred = fig.add_subplot(gs[0, 0])
         sigma = fig.add_subplot(gs[0, 1])
-        hpar = fig.add_subplot(gs[1, 0].subgridspec(1, 2)[0])
-        jac = fig.add_subplot(gs[1, 0].subgridspec(1, 2)[1])
+        hpar = fig.add_subplot(gs[1, 0].subgridspec(2, 1)[0])
+        jac = fig.add_subplot(gs[1, 0].subgridspec(2, 1)[1])
         mse = fig.add_subplot(gs[1, 1])
 
         pred.scatter(ys, ya, color='red')
@@ -128,13 +130,13 @@ class GPR(object):
         hpar.legend()
 
         jac.scatter(range(0, len(self.hp)),
-                    np.log(self.jac_llhd),
+                    np.log(np.abs(self.jac_llhd)),
                     label='$dL/d\\theta$')
         jac.set(xlabel='S.No')
         jac.legend()
 
         mse.hist(tc.log(ys - ya))
-        mse.set(title='Mean Squared Error', xlabel='MSE', ylabel='Frequency')
+        mse.set(title='Actual Error', xlabel='Error', ylabel='Frequency')
 
 
 def log_likelihood(x, y, hp, cov, **kwargs):
