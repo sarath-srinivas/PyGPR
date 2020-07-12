@@ -63,6 +63,7 @@ def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
 
         sqd = sqd.view((-1, sqd.shape[-2], sqd.shape[-1]))
 
+        sqd.mul_(-1.0)
         sqd.exp_()
         sqd.mul_(sig[:, None, None].square())
 
@@ -77,6 +78,7 @@ def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
         sqd = dist_square(xl, xs=xsl)
         sqd = sqd.view((-1, sqd.shape[-2], sqd.shape[-1]))
 
+        sqd.mul_(-1.0)
         sqd.exp_()
         sqd.mul_(sig[:, None, None].square())
 
