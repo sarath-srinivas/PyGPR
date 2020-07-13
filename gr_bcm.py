@@ -36,61 +36,80 @@ class GRBCM(GPR):
         self.x = tc.cat((tmpx, xl), dim=1)
         self.y = tc.cat((tmpy, yl), dim=1)
 
-    def train(self, method='Nelder-Mead', jac=False):
-        pass
+    def cost_fun_global(self, hp):
+        llhd = log_likelihood(self.x, self.y, hp, self.cov, **selg.args)
+        return llhd.sum()
+
+    def cost_fun_local(self, hp, cen):
+        llhd = log_likelihood(self.x[cen, :, :], self.y[cen, :], hp, self.cov,
+                **selg.args)
+        return llhd
+
+    def train_local(self, method='Nelder-Mead', jac=False):
+
+        self.llhd = tc.empty(self.x.shape[0])
+        self.jac_llhd = tc.empty_like(self.hp)
+
+        if jac:
+            for cen in range(0,self.x.shape[0]):
+                res = opt.minimize(self.cost_fun_local,
+                        self.hp[cen, :], args=(cen,),
+                        jac=jac_cost_fun_local,
+                        method=method)
+
+                self.hp[cen,:] = res.x
+                self.llhd[cen] = res.fun
+                self.jac_llhd[cen,:] = res.jac
+
+        else:
+            for cen in range(0,self.x.shape[0]):
+                res = opt.minimize(self.cost_fun_local,
+                        self.hp[cen, :], args=(cen,),
+                        jac=False,
+                        method=method)
+
+                self.hp[cen,:] = res.x
+                self.llhd[cen] = res.fun
+                self.jac_llhd[cen,:] = res.jac
+
+        return res
+
+    def train_global(self, method='Nelder-Mead', jac=False)
+
+        if jac:
+            res = opt.minimize(self.cost_fun_global,
+                    self.hp,
+                    jac=jac_cost_fun_global,
+                    method=method)
+        else:
+            res = opt.minimize(self.cost_fun_global,
+                    self.hp,
+                    jac=False,
+                    method=method)
+
+            self.hp = res.x
+        self.llhd= res.fun
+        self.jac_llhd = res.jac
+
+        return res
 
 
-def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
+def log_likelihood(x, y, hp, cov, **kwargs):
 
-    dim = len(mins)
-    xc = tc.empty([max_count, dim])
+    krn = cov(x, hp=hp, **kwargs)
+    krnchd = tc.cholesky(krn)
 
-    xc[0, :] = mins + tc.rand(1, dim).mul_(maxs - mins)
+    y = y.view(-1, y.shape[-1], 1)
 
-    k = tc.tensor(1, dtype=tc.int64)
-    count = tc.tensor(1, dtype=tc.int64)
+    wt = tc.cholesky_solve(y, krnchd)
 
-    while k < max_count and count < max_count:
+    wt.squeeze_(2)
+    y.squeeze_(2)
 
-        x = mins + tc.rand(1, dim).mul_(maxs - mins)
+    llhd = 0.5 * wt.mul_(y).sum(-1) \
+            + tc.log(tc.diagonal(krnchd, dim1=-2, dim2=-1)).sum(-1) \
+            + 0.5 * y.shape[-1] * tc.log(tc.tensor(2 * np.pi))
 
-        dist = tc.sum((xc[:k, :] - x).square_(), 1).sqrt_()
+    llhd.squeeze_(0)
 
-        if tc.all(dist.sub_(min_dist) > 1E-5):
-            xc[k, :] = x
-            k.add_(1)
-            count.mul_(0)
-
-        count.add_(1)
-
-    return xc[:k, :]
-
-
-def euclidean_dist(x, y):
-    x2 = tc.sum(x.square(), 1)
-    y2 = tc.sum(y.square(), 1)
-
-    sqd = -2.0 * tc.matmul(x, y.transpose(0, 1)) + (x2.reshape(-1, 1) +
-                                                    y2.reshape(1, -1))
-
-    return sqd.sqrt_()
-
-
-def cluster_samples(xc, ns, mins, maxs):
-
-    nc = xc.shape[0]
-    dim = xc.shape[1]
-
-    xpart = tc.empty([nc, ns, dim])
-
-    x = mins + tc.rand(10 * ns * nc, dim).mul_(maxs - mins)
-
-    dist = euclidean_dist(x, xc)
-
-    idx = tc.argmin(dist, 1)
-
-    for i in range(0, nc):
-
-        xpart[i, :, :] = x[idx == i][:ns, :]
-
-    return xpart
+    return llhd.numpy()
