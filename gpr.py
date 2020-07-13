@@ -64,13 +64,9 @@ class GPR(object):
             self.need_upd = False
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
-
         ys = tc.mv(krns, self.wt)
-
         krnss = self.cov(xs, hp=self.hp, **self.args)
-
         lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
-
         covars = krnss - tc.mm(krns, lks)
 
         return ys, covars
@@ -95,14 +91,44 @@ class GPR(object):
                     - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
             self.dgn['MD'] = (1.0 / n) * md
 
-    def plot(self, xs, ys, covars, ya, diag=False):
-        if diag:
-            sig = tc.sqrt(covars)
-        else:
-            sig = tc.sqrt(tc.diag(covars))
-
+    def plot_ci(self, ys, ya, ax=None):
         min_ys = tc.min(ys)
         max_ys = tc.max(ys)
+        ax.scatter(ys, ya, color='red')
+        ax.plot([min_ys, max_ys], [min_ys, max_ys])
+        ax.axis('equal')
+        ax.set(title='Prediction Vs Exact',
+               xlabel='Y Predicted',
+               ylabel='Y actual')
+
+    def plot_hist_sig(self, covar, diag=False, ax=None):
+        if diag:
+            sig = tc.sqrt(covar)
+        else:
+            sig = tc.sqrt(tc.diag(covar))
+
+        ax.hist(tc.log(sig))
+        ax.set(title='$\sigma$-Predicted',
+               xlabel='$log(\sigma)$',
+               ylabel='Frequency')
+
+    def plot_hist_err(self, ys, ya, ax=None):
+        ax.hist(tc.log(ys - ya))
+        ax.set(title='Actual Error', xlabel='Error', ylabel='Frequency')
+
+    def plot_hparam(self, ax=None):
+        ax.scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
+        ax.set(xlabel='S.No')
+        ax.legend()
+
+    def plot_jac(self, ax=None):
+        jac.scatter(range(0, len(self.hp)),
+                    np.log(np.abs(self.jac_llhd)),
+                    label='$dL/d\\theta$')
+        jac.set(xlabel='S.No')
+        jac.legend()
+
+    def plot(self, xs, ys, covars, ya, diag=False):
 
         fig = plt.figure(constrained_layout=True)
         gs = fig.add_gridspec(2, 2, wspace=0.2, hspace=0.2)
@@ -113,30 +139,11 @@ class GPR(object):
         jac = fig.add_subplot(gs[1, 0].subgridspec(2, 1)[1])
         mse = fig.add_subplot(gs[1, 1])
 
-        pred.scatter(ys, ya, color='red')
-        pred.plot([min_ys, max_ys], [min_ys, max_ys])
-        pred.axis('equal')
-        pred.set(title='Prediction Vs Exact',
-                 xlabel='Y Predicted',
-                 ylabel='Y actual')
-
-        sigma.hist(tc.log(sig))
-        sigma.set(title='$\sigma$-Predicted',
-                  xlabel='$log(\sigma)$',
-                  ylabel='Frequency')
-
-        hpar.scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
-        hpar.set(xlabel='S.No')
-        hpar.legend()
-
-        jac.scatter(range(0, len(self.hp)),
-                    np.log(np.abs(self.jac_llhd)),
-                    label='$dL/d\\theta$')
-        jac.set(xlabel='S.No')
-        jac.legend()
-
-        mse.hist(tc.log(ys - ya))
-        mse.set(title='Actual Error', xlabel='Error', ylabel='Frequency')
+        self.plot_ci(ys, ya, ax=pred)
+        self.plot_hist_sig(covars, ax=sigma)
+        self.plot_hparam(ax=hpar)
+        self.plot_jac(ax=jac)
+        self.plot_err(ys, ya, ax=mse)
 
 
 def log_likelihood(x, y, hp, cov, **kwargs):
