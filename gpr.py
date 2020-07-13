@@ -94,12 +94,10 @@ class GPR(object):
     def plot_ci(self, ys, ya, ax=None):
         min_ys = tc.min(ys)
         max_ys = tc.max(ys)
-        ax.scatter(ys, ya, color='red')
+        ax.scatter(ys, ya, color='red', label='predicted Vs exact')
         ax.plot([min_ys, max_ys], [min_ys, max_ys])
         ax.axis('equal')
-        ax.set(title='Prediction Vs Exact',
-               xlabel='Y Predicted',
-               ylabel='Y actual')
+        ax.legend()
 
     def plot_hist_sig(self, covar, diag=False, ax=None):
         if diag:
@@ -107,14 +105,12 @@ class GPR(object):
         else:
             sig = tc.sqrt(tc.diag(covar))
 
-        ax.hist(tc.log(sig))
-        ax.set(title='$\sigma$-Predicted',
-               xlabel='$log(\sigma)$',
-               ylabel='Frequency')
+        ax.hist(tc.log(sig), label='log($\sigma$)')
+        ax.legend()
 
     def plot_hist_err(self, ys, ya, ax=None):
-        ax.hist(tc.log(ys - ya))
-        ax.set(title='Actual Error', xlabel='Error', ylabel='Frequency')
+        ax.hist(tc.log(ys - ya), label='log(actual error)')
+        ax.legend()
 
     def plot_hparam(self, ax=None):
         ax.scatter(range(0, len(self.hp)), self.hp, label='$\\theta$')
@@ -122,11 +118,11 @@ class GPR(object):
         ax.legend()
 
     def plot_jac(self, ax=None):
-        jac.scatter(range(0, len(self.hp)),
-                    np.log(np.abs(self.jac_llhd)),
-                    label='$dL/d\\theta$')
-        jac.set(xlabel='S.No')
-        jac.legend()
+        ax.scatter(range(0, len(self.hp)),
+                   np.log(np.abs(self.jac_llhd)),
+                   label='-log($dL/d\\theta$)')
+        ax.set(xlabel='S.No')
+        ax.legend()
 
     def plot(self, xs, ys, covars, ya, diag=False):
 
@@ -143,7 +139,7 @@ class GPR(object):
         self.plot_hist_sig(covars, ax=sigma)
         self.plot_hparam(ax=hpar)
         self.plot_jac(ax=jac)
-        self.plot_err(ys, ya, ax=mse)
+        self.plot_hist_err(ys, ya, ax=mse)
 
 
 def log_likelihood(x, y, hp, cov, **kwargs):
