@@ -28,34 +28,30 @@ class TEST(object):
             cov = covars[key]
             hp = tc.rand(cov(x).shape[0])
             krn = cov(x, hp=hp)
-            print(krn.shape)
 
             self.covar['symmetric'][key] = tc.allclose(krn, krn.t(), atol=tol)
             self.covar_err['symmetric'][key] = tc.sub(krn, krn.t())
 
             eig = tc.eig(krn)[0][:, 0]
 
-            self.covar['pos_def'][key] = tc.all(eig > tol)
+            self.covar['pos_def'][key] = tc.all(eig > 0)
 
             self.covar_err['pos_def'][key] = eig
 
             eps = tc.tensor(1E-5)
 
-            dkrn_num = tc.empty([len(hp), self.n, self.n])
+            #dkrn_num = tc.empty([len(hp), self.n, self.n])
 
-            for p in range(0, len(hp)):
+            #for p in range(0, len(hp)):
 
-                hp_eps = hp.index_add(0, tc.tensor(p), eps)
-                dkrn_num[p, :, :] = cov(x, hp=hp_eps).sub_(cov(x, hp=hp))
-                dkrn_num[p, :, :].div_(eps)
+            #    hp_eps = hp.index_add(0, tc.tensor(p), eps)
+            #    dkrn_num[p, :, :] = cov(x, hp=hp_eps).sub_(cov(x, hp=hp))
+            #    dkrn_num[p, :, :].div_(eps)
 
-            dkrn = cov(x, hp=hp, deriv=True)[1]
+            #dkrn = cov(x, hp=hp, deriv=True)[1]
 
-            print(dkrn_num.shape)
-            print(dkrn.shape)
+            #self.covar['derivative'][key] = tc.allclose(dkrn_num,
+            #                                            dkrn,
+            #                                            atol=tol)
 
-            self.covar['derivative'][key] = tc.allclose(dkrn_num,
-                                                        dkrn,
-                                                        atol=tol)
-
-            self.covar_err['derivative'][key] = dkrn_num.sub_(dkrn)
+            #self.covar_err['derivative'][key] = dkrn_num.sub_(dkrn)
