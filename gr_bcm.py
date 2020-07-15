@@ -139,22 +139,19 @@ class GRBCM(GPR):
 
         return ys, covars
 
-    def interpolate(self, xs):
-
-        ys_g, covars_g = self.interpolate_global(xs)
-        ys_l, covars_l = self.interpolate_local(xs)
-
+    def aggregate(self, ys_g, covars_g, ys_l, covars_l):
         beta = tc.empty(self.nc + 1, ys_g.shape[-1])
-        print(beta.shape)
         prec = tc.empty(self.nc + 1, ys_g.shape[-1])
 
         prec[0, :] = tc.diag(covars_g).reciprocal_()
-        prec[1:, :] = tc.diagonal(covars_l, dim1=-2, dim2=-1).reciprocal_()
+        prec[1:, :] = tc.diagonal(covars_l, dim1=-2, dim2=-1).reciprocal()
 
-        beta[1:, :] = tc.log(prec[1:, :]).sub_(tc.log(prec[0, :]))
+        beta[1:, :] = tc.log(prec[1:, :]).sub_(tc.log(prec[0, :])).mul_(0.5)
         beta[1, :].fill_(1.0)
-        beta[1:, :].mul_(0.5)
         beta[0, :] = beta[1:, :].sum(0).sub_(1.0).mul_(-1.0)
+
+        self.beta = tc.clone(beta)
+        self.prec = tc.clone(prec)
 
         ys = tc.cat((ys_g[None, :], ys_l))
 
@@ -164,6 +161,12 @@ class GRBCM(GPR):
         ys = ys.mul_(precs).sum(0).mul_(covars)
 
         return ys, tc.diag(covars)
+
+    def interpolate(self, xs):
+        ys_g, covars_g = self.interpolate_global(xs)
+        ys_l, covars_l = self.interpolate_local(xs)
+
+        return self.aggregate(ys_g, covars_g, ys_l, covars_l)
 
     def plot_hparam(self, ax=None):
         cno = range(0, self.nc)
