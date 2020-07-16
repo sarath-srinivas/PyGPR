@@ -28,6 +28,20 @@ def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
     return xc[:k, :]
 
 
+def nsample_repulsion(nc, mins, maxs, max_count=5000):
+    vol = tc.prod(maxs - mins)
+    dim = len(mins)
+    min_dist = (vol / nc)**(1 / dim)
+
+    xc = sample_with_repulsion(mins, maxs, min_dist, max_count=max_count)
+
+    while xc.shape[0] < nc:
+        min_dist *= 0.9
+        xc = sample_with_repulsion(mins, maxs, min_dist, max_count=max_count)
+
+    return xc[:nc, :], min_dist
+
+
 def euclidean_dist(x, y):
     x2 = tc.sum(x.square(), 1)
     y2 = tc.sum(y.square(), 1)
