@@ -56,7 +56,7 @@ def sq_exp_noise(x, xs=None, hp=None, deriv=False, **kargs):
     sig = hp[:, 0]
     sig_noise = hp[:, 1]
     ls = hp[:, 2:]
-    eps = sig_noise.square().add_(1e-5)
+    eps = sig_noise.square()
     ls.unsqueeze_(1)
     xl = x.mul(ls)
 
@@ -113,11 +113,11 @@ def d_sq_exp_noise(x, krn, hp):
     sig = hp[:, 0]
     sig_noise = hp[:, 1]
     ls = hp[:, 2:]
-    eps = sig_noise.square().add_(1e-5)
+    eps = sig_noise.square()
 
     idt = tc.empty_like(krn).copy_(tc.eye(n))
-    idt.mul_(eps[:, None, None])
-    krn = krn.sub(idt)
+    krn_noise = idt.mul(eps[:, None, None])
+    krn = krn.sub(krn_noise)
 
     dkrn[:, 0, :, :] = krn.mul(sig[:, None, None].reciprocal().mul_(2.0))
     dkrn[:, 1, :, :] = idt.mul_(sig_noise[:, None, None].mul(2.0))

@@ -80,5 +80,5 @@ def test_covar_deriv(n, covar_fun, eps_diff=1e-5):
 
         dkrn_diff[k, :, :] = krn_eps.sub_(krn).div_(eps_diff)
 
-    return dkrn_diff, dkrn
-    #assert tc.allclose(dkrn, dkrn_diff, atol=eps_diff)
+    #return dkrn, dkrn_diff
+    assert tc.allclose(dkrn, dkrn_diff, atol=eps_diff)
