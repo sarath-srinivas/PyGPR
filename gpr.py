@@ -2,6 +2,7 @@ import torch as tc
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+import opt_einsum as oes
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
@@ -162,9 +163,11 @@ def jac_log_likelihood(x, y, hp, cov, **kwargs):
     krnchd = tc.cholesky(krn)
 
     wt = tc.cholesky_solve(y.reshape(-1, 1), krnchd).squeeze_()
+    kk = tc.cholesky_solve(dkrn, krnchd)
 
-    jac_llhd = dkrn.matmul(wt).matmul(wt)
-    jac_llhd.sub_(tc.sum(tc.diagonal(dkrn, dim1=-1, dim2=-2), 1))
-    jac_llhd.mul_(-0.5)
+    tr1 = oes.contract('i,kij,j->k', wt, dkrn, wt, backend='torch')
+    tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
+
+    jac_llhd = tr1.sub_(tr2).mul_(-0.5)
 
     return jac_llhd.numpy()

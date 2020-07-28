@@ -162,7 +162,7 @@ def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
 
     sig = hp[:, 0]
     ls = hp[:, 1:]
-    eps = 1e-5 * tc.ones(nc)
+    eps = 1e-7 * tc.ones(nc)
     ls.unsqueeze_(1)
     xl = x.mul(ls)
 
@@ -218,8 +218,8 @@ def d_sq_exp(x, krn, hp):
 
     sig = hp[:, 0]
     ls = hp[:, 1:]
-    eps = 1e-5 * tc.ones(nc)
 
+    eps = 1e-7 * tc.ones(nc)
     idt = tc.empty_like(krn).copy_(tc.eye(n))
     idt.mul_(eps[:, None, None])
     krn = krn.sub(idt)
