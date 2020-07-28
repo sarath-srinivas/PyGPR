@@ -91,30 +91,50 @@ def sq_exp_noise(x, xs=None, hp=None, deriv=False, **kargs):
     if deriv == False:
         return sqd
     else:
-        return sqd, d_sq_exp(x, sqd, hp)
+        return sqd, d_sq_exp_noise(x, sqd, hp)
 
 
 def d_sq_exp_noise(x, krn, hp):
 
-    nhp = len(hp)
-    n = krn.shape[0]
+    x = x.view((-1, x.shape[-2], x.shape[-1]))
+    krn = krn.view((-1, krn.shape[-2], krn.shape[-1]))
 
-    dkrn = tc.empty([nhp, n, n], dtype=tc.float64)
+    nc = x.shape[0]
+    nhp = hp.shape[-1]
+    n = krn.shape[-1]
 
-    krn = krn.sub(tc.eye(n).mul_(hp[1]**2))
+    if hp.dim() == 1:
+        hp = hp.view((nc, -1))
 
-    dkrn[0] = krn.mul((2.0 / hp[0]))
-    dkrn[1] = tc.eye(n, dtype=tc.float64).mul_(2.0 * hp[1])
+    assert hp.dim() == 2
 
-    xt = x.transpose(0, 1)
-    diff = xt[:, :, np.newaxis] - xt[:, np.newaxis, :]
+    dkrn = tc.empty([nc, nhp, n, n], dtype=tc.float64)
+
+    sig = hp[:, 0]
+    sig_noise = hp[:, 1]
+    ls = hp[:, 2:]
+    eps = sig_noise.square().add_(1e-5)
+
+    idt = tc.empty_like(krn).copy_(tc.eye(n))
+    idt.mul_(eps[:, None, None])
+    krn = krn.sub(idt)
+
+    dkrn[:, 0, :, :] = krn.mul(sig[:, None, None].reciprocal().mul_(2.0))
+    dkrn[:, 1, :, :] = idt.mul_(sig_noise[:, None, None].mul(2.0))
+
+    xt = x.transpose(-2, -1)
+    diff = xt[:, :, :, None].sub(xt[:, :, None, :])
 
     diff.square_()
-    diff.mul_(hp[2:, np.newaxis, np.newaxis])
-    diff.mul_(krn[np.newaxis, :, :])
+    diff.mul_(ls[:, :, None, None])
+    diff.mul_(krn[:, None, :, :])
     diff.mul_(-2.0)
 
-    dkrn[2:] = diff
+    dkrn[:, 2:, :, :] = diff
+
+    x.squeeze_(0)
+    hp.squeeze_(0)
+    dkrn.squeeze_(0)
 
     return dkrn
 
@@ -182,26 +202,44 @@ def sq_exp(x, xs=None, hp=None, deriv=False, **kargs):
 
 def d_sq_exp(x, krn, hp):
 
-    nhp = len(hp)
-    n = krn.shape[0]
+    x = x.view((-1, x.shape[-2], x.shape[-1]))
+    krn = krn.view((-1, krn.shape[-2], krn.shape[-1]))
 
-    dkrn = tc.empty([nhp, n, n], dtype=tc.float64)
+    nc = x.shape[0]
+    nhp = hp.shape[-1]
+    n = krn.shape[-1]
 
-    eps = 1e-5 * tc.ones(x.shape[0])
+    if hp.dim() == 1:
+        hp = hp.view((nc, -1))
 
-    krn = krn.sub(tc.eye(n).mul_(eps**2))
+    assert hp.dim() == 2
 
-    dkrn[0] = krn.mul((2.0 / hp[0]))
+    dkrn = tc.empty([nc, nhp, n, n], dtype=tc.float64)
 
-    xt = x.transpose(0, 1)
-    diff = xt[:, :, np.newaxis] - xt[:, np.newaxis, :]
+    sig = hp[:, 0]
+    ls = hp[:, 1:]
+    eps = 1e-5 * tc.ones(nc)
+
+    idt = tc.empty_like(krn).copy_(tc.eye(n))
+    idt.mul_(eps[:, None, None])
+    krn = krn.sub(idt)
+
+    dkrn[:, 0, :, :] = krn.mul(sig[:, None, None].reciprocal().mul_(2.0))
+
+    xt = x.transpose(-2, -1)
+
+    diff = xt[:, :, :, None].sub(xt[:, :, None, :])
 
     diff.square_()
-    diff.mul_(hp[2:, np.newaxis, np.newaxis])
-    diff.mul_(krn[np.newaxis, :, :])
+    diff.mul_(ls[:, :, None, None])
+    diff.mul_(krn[:, None, :, :])
     diff.mul_(-2.0)
 
-    dkrn[1:] = diff
+    dkrn[:, 1:, :, :] = diff
+
+    x.squeeze_(0)
+    hp.squeeze_(0)
+    dkrn.squeeze_(0)
 
     return dkrn
 
