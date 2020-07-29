@@ -1,5 +1,24 @@
 import torch as tc
 import numpy as np
+tc.set_default_tensor_type(tc.DoubleTensor)
+
+
+def sample_gp(x, cov, hp=None, mean=None, **kwargs):
+
+    if hp is None:
+        hp = cov(x)
+
+    krn = cov(x, hp=hp, **kwargs)
+    krn_chd = tc.cholesky(krn, upper=False)
+
+    N = tc.randn(x.shape[-2])
+
+    if mean is None:
+        f = tc.mv(krn_chd, N)
+    else:
+        f = tc.mv(krn_chd, N).add_(mean)
+
+    return f
 
 
 def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
