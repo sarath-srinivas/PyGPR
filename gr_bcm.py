@@ -2,7 +2,7 @@ import torch as tc
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-from .gpr import GPR
+from .gpr import GPR, log_likelihood, jac_log_likelihood
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
@@ -47,12 +47,22 @@ class GRBCM(GPR):
         llhd = log_likelihood(self.xg, self.yg, hp, self.cov, **self.args)
         return llhd
 
+    def jac_cost_fun_global(self, hp):
+        jac_llhd = jac_log_likelihood(self.xg, self.yg, hp, self.cov,
+                                      **self.args)
+        return jac_llhd
+
     def cost_fun_local(self, hp, cen):
         llhd = log_likelihood(self.x[cen, :, :], self.y[cen, :], hp, self.cov,
                               **self.args)
         return llhd
 
-    def train(self, method='Nelder-Mead', jac=False):
+    def jac_cost_fun_local(self, hp, cen):
+        jac_llhd = jac_log_likelihood(self.x[cen, :, :], self.y[cen, :], hp,
+                                      self.cov, **self.args)
+        return jac_llhd
+
+    def train(self, method='CG', jac=True):
 
         self.llhd = tc.empty(self.x.shape[0])
         self.jac_llhd = tc.empty_like(self.hp)
@@ -62,7 +72,7 @@ class GRBCM(GPR):
                 res = opt.minimize(self.cost_fun_local,
                                    self.hp[cen, :],
                                    args=(cen, ),
-                                   jac=jac_cost_fun_local,
+                                   jac=self.jac_cost_fun_local,
                                    method=method)
                 self.hp[cen, :] = tc.tensor(res.x)
                 self.llhd[cen] = tc.tensor(res.fun)
@@ -72,7 +82,7 @@ class GRBCM(GPR):
 
             res = opt.minimize(self.cost_fun_global,
                                self.hpg,
-                               jac=jac_cost_fun_global,
+                               jac=self.jac_cost_fun_global,
                                method=method)
             self.hpg = tc.tensor(res.x)
             self.llhd_g = tc.tensor(res.fun)
@@ -183,7 +193,7 @@ class GRBCM(GPR):
         ax.legend()
 
 
-def log_likelihood(x, y, hp, cov, **kwargs):
+def log_likelihood_batched(x, y, hp, cov, **kwargs):
 
     krn = cov(x, hp=hp, **kwargs)
     krnchd = tc.cholesky(krn)

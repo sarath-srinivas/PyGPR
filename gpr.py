@@ -35,7 +35,7 @@ class GPR(object):
         jac_f = jac_log_likelihood(self.x, self.y, hp, self.cov, **self.args)
         return jac_f
 
-    def train(self, method='Nelder-Mead', jac=False):
+    def train(self, method='CG', jac=True):
 
         if jac:
             res = opt.minimize(self.cost_fun,
@@ -100,17 +100,17 @@ class GPR(object):
         ax.axis('equal')
         ax.legend()
 
-    def plot_hist_sig(self, covar, diag=False, ax=None):
+    def plot_hist_sig(self, ys, covar, diag=False, ax=None):
         if diag:
-            sig = tc.sqrt(covar)
+            sig = tc.sqrt(covar).div_(ys)
         else:
-            sig = tc.sqrt(tc.diag(covar))
+            sig = tc.sqrt(tc.diag(covar)).div_(ys)
 
-        ax.hist(tc.log(sig), label='log($\sigma$)')
+        ax.hist(tc.log(sig), label='log($\\frac{\sigma}{\mu}$)')
         ax.legend()
 
     def plot_hist_err(self, ys, ya, ax=None):
-        ax.hist(tc.log(ys - ya), label='log(actual error)')
+        ax.hist(tc.log(ys - ya) - tc.log(ya), label='log(rel error)')
         ax.legend()
 
     def plot_hparam(self, ax=None):
@@ -137,7 +137,7 @@ class GPR(object):
         mse = fig.add_subplot(gs[1, 1])
 
         self.plot_ci(ys, ya, ax=pred)
-        self.plot_hist_sig(covars, ax=sigma)
+        self.plot_hist_sig(ys, covars, ax=sigma)
         self.plot_hparam(ax=hpar)
         self.plot_jac(ax=jac)
         self.plot_hist_err(ys, ya, ax=mse)
