@@ -39,14 +39,14 @@ class GPR(object):
 
         if jac:
             res = opt.minimize(self.cost_fun,
-                               self.hp,
-                               jac=self.jac_cost_fun,
-                               method=method)
+                    self.hp,
+                    jac=self.jac_cost_fun,
+                    method=method)
         else:
             res = opt.minimize(self.cost_fun,
-                               self.hp,
-                               jac=False,
-                               method=method)
+                    self.hp,
+                    jac=False,
+                    method=method)
         self.hp = res.x
         self.need_upd = True
 
@@ -61,7 +61,7 @@ class GPR(object):
             self.krn = self.cov(self.x, hp=self.hp, **self.args)
             self.krnchd = tc.cholesky(self.krn)
             self.wt = tc.squeeze(
-                tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
+                    tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
             self.need_upd = False
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
@@ -120,8 +120,8 @@ class GPR(object):
 
     def plot_jac(self, ax=None):
         ax.scatter(range(0, len(self.hp)),
-                   np.log(np.abs(self.jac_llhd)),
-                   label='-log($dL/d\\theta$)')
+                np.log(np.abs(self.jac_llhd)),
+                label='-log($dL/d\\theta$)')
         ax.set(xlabel='S.No')
         ax.legend()
 

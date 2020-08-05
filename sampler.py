@@ -3,62 +3,64 @@ import numpy as np
 tc.set_default_tensor_type(tc.DoubleTensor)
 
 
-def sample_gp(x, cov, hp=None, mean=None, **kwargs):
+class UNIFORM(object):
 
-    if hp is None:
-        hp = cov(x)
+    def __init__(self, seed):
+        self.seed = seed
 
-    krn = cov(x, hp=hp, **kwargs)
-    krn_chd = tc.cholesky(krn, upper=False)
-
-    N = tc.randn(x.shape[-2])
-
-    if mean is None:
-        f = tc.mv(krn_chd, N)
-    else:
-        f = tc.mv(krn_chd, N).add_(mean)
-
-    return f
+    def sample(self, n, mins, maxs):
+        tc.manual_seed(self.seed)
+        dim = len(mins)
+        x = mins + tc.rand(n, dim).mul_(maxs - mins)
+        return x
 
 
-def sample_with_repulsion(mins, maxs, min_dist, max_count=5000):
+class MATERN1(UNIFORM):
 
-    dim = len(mins)
-    xc = tc.empty([max_count, dim])
+    def __init__(self, seed):
+        super().__init__(seed)
+        self.min_dist = None
+        self.max_count = 5000
 
-    xc[0, :] = mins + tc.rand(1, dim).mul_(maxs - mins)
+    def sample_repulsion(self, mins, maxs, min_dist):
 
-    k = tc.tensor(1, dtype=tc.int64)
-    count = tc.tensor(1, dtype=tc.int64)
+        dim = len(mins)
+        xc = tc.empty([self.max_count, dim])
 
-    while k < max_count and count < max_count:
+        xc[0, :] = mins + tc.rand(1, dim).mul_(maxs - mins)
 
-        x = mins + tc.rand(1, dim).mul_(maxs - mins)
+        k = 1
+        count = 1
 
-        dist = tc.sum((xc[:k, :] - x).square_(), 1).sqrt_()
+        while k < self.max_count and count < self.max_count:
 
-        if tc.all(dist.sub_(min_dist) > 1E-5):
-            xc[k, :] = x
-            k.add_(1)
-            count.mul_(0)
+            x = mins + tc.rand(1, dim).mul_(maxs - mins)
 
-        count.add_(1)
+            dist = tc.sum((xc[:k, :] - x).square_(), 1).sqrt_()
 
-    return xc[:k, :]
+            if tc.all(dist.sub_(min_dist) > 1E-5):
+                xc[k, :] = x
+                k += 1
+                count *= 0
 
+            count += 1
 
-def nsample_repulsion(nc, mins, maxs, max_count=5000):
-    vol = tc.prod(maxs - mins)
-    dim = len(mins)
-    min_dist = (vol / nc)**(1 / dim)
+        return xc[:k, :]
 
-    xc = sample_with_repulsion(mins, maxs, min_dist, max_count=max_count)
+    def sample(self, n, mins, maxs):
+        vol = tc.prod(maxs - mins)
+        dim = len(mins)
+        min_dist = (vol / n)**(1 / dim)
 
-    while xc.shape[0] < nc:
-        min_dist *= 0.9
-        xc = sample_with_repulsion(mins, maxs, min_dist, max_count=max_count)
+        xc = self.sample_repulsion(mins, maxs, min_dist)
 
-    return xc[:nc, :], min_dist
+        while xc.shape[0] < n:
+            min_dist *= 0.9
+            xc = self.sample_repulsion(mins, maxs, min_dist)
+
+        self.min_dist = min_dist
+
+        return xc[:n, :]
 
 
 def euclidean_dist(x, y):
@@ -89,3 +91,21 @@ def cluster_samples(xc, ns, mins, maxs):
         xpart[i, :, :] = x[idx == i][:ns, :]
 
     return xpart
+
+
+def sample_gp(x, cov, hp=None, mean=None, **kwargs):
+
+    if hp is None:
+        hp = cov(x)
+
+    krn = cov(x, hp=hp, **kwargs)
+    krn_chd = tc.cholesky(krn, upper=False)
+
+    N = tc.randn(x.shape[-2])
+
+    if mean is None:
+        f = tc.mv(krn_chd, N)
+    else:
+        f = tc.mv(krn_chd, N).add_(mean)
+
+    return f
