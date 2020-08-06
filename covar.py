@@ -123,7 +123,7 @@ def d_sq_exp_noise(x, krn, hp):
     dkrn[:, 1, :, :] = idt.mul_(sig_noise[:, None, None].mul(2.0))
 
     xt = x.transpose(-2, -1)
-    diff = xt[:, :, :, None].sub(xt[:, :, None, :])
+    diff = xt[:, :, :, None].sub(xt[:, :, None, :].clone())
 
     diff.square_()
     diff.mul_(ls[:, :, None, None])
@@ -228,7 +228,7 @@ def d_sq_exp(x, krn, hp):
 
     xt = x.transpose(-2, -1)
 
-    diff = xt[:, :, :, None].sub(xt[:, :, None, :])
+    diff = xt[:, :, :, None].sub(xt[:, :, None, :].clone())
 
     diff.square_()
     diff.mul_(ls[:, :, None, None])
