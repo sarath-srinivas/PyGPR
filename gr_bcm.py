@@ -2,6 +2,7 @@ import torch as tc
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+import opt_einsum as oen
 from .gpr import GPR, log_likelihood, jac_log_likelihood
 
 tc.set_default_tensor_type(tc.DoubleTensor)
@@ -149,7 +150,19 @@ class GRBCM(GPR):
 
         return ys, covars
 
-    def aggregate(self, ys_g, covars_g, ys_l, covars_l):
+    def aggregate_covar(self, covars_g, covars_l):
+        covar_gl = tc.cat((covars_g[None, :, :], covars_l))
+        covar_gl_chd = tc.cholesky(covar_gl)
+        idt = tc.empty_like(covar_gl).copy_(tc.eye(covar_gl.shape[-1]))
+        prec_gl = tc.cholesky_solve(idt, covar_gl_chd)
+
+        prec = oen.contract('c,cij->ij', beta, prec_gl, backend='torch')
+        covars = tc.cholesky_inverse(tc.cholesky(prec))
+
+        return covars
+
+    def aggregate(self, ys_g, covars_g, ys_l, covars_l, diag_only=True):
+
         beta = tc.empty(self.nc + 1, ys_g.shape[-1])
         prec = tc.empty(self.nc + 1, ys_g.shape[-1])
 
@@ -166,17 +179,21 @@ class GRBCM(GPR):
         ys = tc.cat((ys_g[None, :], ys_l))
 
         precs = prec.mul_(beta)
-        covars = precs.sum(0).reciprocal_()
 
         ys = ys.mul_(precs).sum(0).mul_(covars)
 
-        return ys, tc.diag(covars)
+        if diag_only:
+            covars = tc.diag(precs.sum(0).reciprocal_())
+        else:
+            covars = self.get_pred_covar(covars_g, covars_l)
 
-    def interpolate(self, xs):
+        return ys, covars
+
+    def interpolate(self, xs, diag_only=True):
         ys_g, covars_g = self.interpolate_global(xs)
         ys_l, covars_l = self.interpolate_local(xs)
 
-        return self.aggregate(ys_g, covars_g, ys_l, covars_l)
+        return self.aggregate(ys_g, covars_g, ys_l, covars_l, diag_only=diag_only)
 
     def plot_hparam(self, ax=None):
         cno = range(0, self.nc)
@@ -205,9 +222,9 @@ def log_likelihood_batched(x, y, hp, cov, **kwargs):
     wt.squeeze_(2)
     y.squeeze_(2)
 
-    llhd = 0.5 * wt.mul_(y).sum(-1) \
-            + tc.log(tc.diagonal(krnchd, dim1=-2, dim2=-1)).sum(-1) \
-            + 0.5 * y.shape[-1] * tc.log(tc.tensor(2 * np.pi))
+    llhd = 0.5 * wt.mul_(y).sum(-1)
+    + tc.log(tc.diagonal(krnchd, dim1=-2, dim2=-1)).sum(-1)
+    + 0.5 * y.shape[-1] * tc.log(tc.tensor(2 * np.pi))
 
     llhd.squeeze_(0)
 

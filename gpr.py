@@ -39,14 +39,14 @@ class GPR(object):
 
         if jac:
             res = opt.minimize(self.cost_fun,
-                    self.hp,
-                    jac=self.jac_cost_fun,
-                    method=method)
+                               self.hp,
+                               jac=self.jac_cost_fun,
+                               method=method)
         else:
             res = opt.minimize(self.cost_fun,
-                    self.hp,
-                    jac=False,
-                    method=method)
+                               self.hp,
+                               jac=False,
+                               method=method)
         self.hp = res.x
         self.need_upd = True
 
@@ -55,20 +55,28 @@ class GPR(object):
 
         return res
 
+    def get_pred_covar(self, xs, krns, hp=None):
+        if hp is None:
+            hp = self.hp
+
+        krnss = self.cov(xs, hp=hp, **self.args)
+        lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
+        covars = krnss - tc.mm(krns, lks)
+
+        return covars
+
     def interpolate(self, xs):
 
         if self.need_upd:
             self.krn = self.cov(self.x, hp=self.hp, **self.args)
             self.krnchd = tc.cholesky(self.krn)
             self.wt = tc.squeeze(
-                    tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
+                tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
             self.need_upd = False
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
         ys = tc.mv(krns, self.wt)
-        krnss = self.cov(xs, hp=self.hp, **self.args)
-        lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
-        covars = krnss - tc.mm(krns, lks)
+        covars = self.get_pred_covar(xs, krns)
 
         return ys, covars
 
@@ -83,13 +91,13 @@ class GPR(object):
 
         if diag == True:
             self.dgn['LLHD'] = -0.5 * tc.sum(np.log(var)) \
-                    - 0.5 * tc.log( 2 * np.pi) - n * self.dgn['RCHI-SQ']
+                - 0.5 * tc.log(2 * np.pi) - n * self.dgn['RCHI-SQ']
         else:
             eig, evec = tc.symeig(covar)
             sol, lu = tc.solve(err[:, np.newaxis], covar)
             md = tc.dot(err, sol.squeeze_())
             self.dgn['LLHD'] = -0.5 * tc.sum(tc.log(eig)) \
-                    - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
+                - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
             self.dgn['MD'] = (1.0 / n) * md
 
     def plot_ci(self, ys, ya, ax=None):
@@ -120,8 +128,8 @@ class GPR(object):
 
     def plot_jac(self, ax=None):
         ax.scatter(range(0, len(self.hp)),
-                np.log(np.abs(self.jac_llhd)),
-                label='-log($dL/d\\theta$)')
+                   np.log(np.abs(self.jac_llhd)),
+                   label='-log($dL/d\\theta$)')
         ax.set(xlabel='S.No')
         ax.legend()
 
@@ -151,8 +159,8 @@ def log_likelihood(x, y, hp, cov, **kwargs):
     wt = tc.squeeze(tc.cholesky_solve(y.reshape(-1, 1), krnchd))
 
     llhd = 0.5 * tc.dot(wt, y) \
-            + tc.sum(tc.log(tc.diag(krnchd))) \
-            + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
+        + tc.sum(tc.log(tc.diag(krnchd))) \
+        + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
 
     return llhd.numpy()
 
