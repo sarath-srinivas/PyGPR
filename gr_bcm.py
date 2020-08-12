@@ -126,9 +126,8 @@ class GRBCM(GPR):
 
         krns = self.cov(self.xg, xs=xs, hp=self.hpg, **self.args)
         ys = tc.mv(krns, self.wtg)
-        krnss = self.cov(xs, hp=self.hpg, **self.args)
-        lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchdg)
-        covars = krnss - tc.mm(krns, lks)
+
+        covars = super().get_pred_covar(xs, krns, krnchd=self.krnchdg, hp=self.hpg)
 
         return ys, covars
 
@@ -150,7 +149,7 @@ class GRBCM(GPR):
 
         return ys, covars
 
-    def aggregate_covar(self, covars_g, covars_l):
+    def aggregate_covar(self, beta, covars_g, covars_l):
         covar_gl = tc.cat((covars_g[None, :, :], covars_l))
         covar_gl_chd = tc.cholesky(covar_gl)
         idt = tc.empty_like(covar_gl).copy_(tc.eye(covar_gl.shape[-1]))
@@ -180,12 +179,12 @@ class GRBCM(GPR):
 
         precs = prec.mul_(beta)
 
-        ys = ys.mul_(precs).sum(0).mul_(covars)
-
         if diag_only:
             covars = tc.diag(precs.sum(0).reciprocal_())
+            ys = ys.mul_(precs).sum(0).mul_(covars)
         else:
-            covars = self.get_pred_covar(covars_g, covars_l)
+            covars = self.aggregate_covar(beta, covars_g, covars_l)
+            ys = ys.mul_(precs).sum(0).mul_(tc.diag(covars))
 
         return ys, covars
 

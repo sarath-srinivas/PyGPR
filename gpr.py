@@ -55,17 +55,21 @@ class GPR(object):
 
         return res
 
-    def get_pred_covar(self, xs, krns, hp=None):
+    def get_pred_covar(self, xs, krns, krnchd=None, hp=None):
         if hp is None:
             hp = self.hp
 
+        if krnchd is None:
+            krnchd = self.krnchd
+
         krnss = self.cov(xs, hp=hp, **self.args)
-        lks = tc.cholesky_solve(krns.transpose(0, 1), self.krnchd)
-        covars = krnss - tc.mm(krns, lks)
+        lks = tc.cholesky_solve(krns.transpose(0, 1), krnchd)
+        covars = krnss.sub_(
+            tc.bmm(krns[None, :, :], lks[None, :, :]).squeeze())
 
         return covars
 
-    def interpolate(self, xs):
+    def interpolate(self, xs, skip_var=False):
 
         if self.need_upd:
             self.krn = self.cov(self.x, hp=self.hp, **self.args)
@@ -76,9 +80,12 @@ class GPR(object):
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
         ys = tc.mv(krns, self.wt)
-        covars = self.get_pred_covar(xs, krns)
 
-        return ys, covars
+        if not skip_var:
+            covars = self.get_pred_covar(xs, krns)
+            return ys, covars
+        else:
+            return ys
 
     def diagnostics(self, xs, ys, covar, ya, diag=False):
         var = tc.diag(covar)
