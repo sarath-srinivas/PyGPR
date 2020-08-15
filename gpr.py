@@ -14,9 +14,9 @@ class GPR(object):
         self.y = tc.clone(y)
         self.cov = cov
         if hp is None:
-            self.hp = self.cov(x)
+            self._hp = self.cov(x)
         else:
-            self.hp = hp
+            self._hp = hp
         self.args = kargs
 
         self.krn = NotImplemented
@@ -26,6 +26,16 @@ class GPR(object):
         self.need_upd = True
 
         self.dgn = {}
+
+    def get_hp(self):
+        return self._hp
+
+    def set_hp(self, hp):
+        self._hp = hp
+        self.need_upd = True
+        print('hp changed.')
+
+    hp = property(get_hp, set_hp)
 
     def cost_fun(self, hp):
         f = log_likelihood(self.x, self.y, hp, self.cov, **self.args)
