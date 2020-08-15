@@ -55,34 +55,50 @@ class GPR(object):
 
         return res
 
-    def get_pred_covar(self, xs, krns, krnchd=None, hp=None):
+    def update(self, hp=None):
         if hp is None:
             hp = self.hp
+        else:
+            self.hp = hp
 
-        if krnchd is None:
-            krnchd = self.krnchd
+        if self.need_upd:
+            self.krn = self.cov(self.x, hp=hp, **self.args)
+            self.krnchd = tc.cholesky(self.krn)
+            self.wt = tc.cholesky_solve(
+                self.y[..., None], self.krnchd).squeeze_(-1)
+            self.need_upd = False
+
+    def get_pred_covar(self, xs, krns, hp=None, diag_only=False):
+        if hp is None:
+            hp = self.hp
+        else:
+            self.hp = hp
 
         krnss = self.cov(xs, hp=hp, **self.args)
-        lks = tc.cholesky_solve(krns.transpose(0, 1), krnchd)
-        covars = krnss.sub_(
-            tc.bmm(krns[None, :, :], lks[None, :, :]).squeeze())
+        krnst = krns.transpose(-2, -1)
+        lks = tc.cholesky_solve(krnst, self.krnchd)
+
+        if diag_only:
+            covars = tc.diagonal(
+                krnss, dim1=-2, dim2=-1).sub_(krns.mul_(lks.transpose(-2, -1)).sum(-1))
+        else:
+            covars = krnss.sub_(
+                tc.bmm(krns.view(-1, *krns.shape[-2:]), lks.view(-1, *lks.shape[-2:])).squeeze())
 
         return covars
 
-    def interpolate(self, xs, skip_var=False):
+    def interpolate(self, xs, diag_only=False, skip_var=False):
 
-        if self.need_upd:
-            self.krn = self.cov(self.x, hp=self.hp, **self.args)
-            self.krnchd = tc.cholesky(self.krn)
-            self.wt = tc.squeeze(
-                tc.cholesky_solve(self.y.reshape(-1, 1), self.krnchd))
-            self.need_upd = False
+        self.update()
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
-        ys = tc.mv(krns, self.wt)
+        ys = tc.bmm(
+            krns.view(-1, *krns.shape[-2:]), self.wt.view(-1, self.wt.shape[-1], 1))
+
+        ys = ys.squeeze_()
 
         if not skip_var:
-            covars = self.get_pred_covar(xs, krns)
+            covars = self.get_pred_covar(xs, krns, diag_only=diag_only)
             return ys, covars
         else:
             return ys
@@ -97,14 +113,14 @@ class GPR(object):
         self.dgn['RCHI-SQ'] = (1.0 / n) * tc.sum((err**2) / var)
 
         if diag == True:
-            self.dgn['LLHD'] = -0.5 * tc.sum(np.log(var)) \
-                - 0.5 * tc.log(2 * np.pi) - n * self.dgn['RCHI-SQ']
+            self.dgn['LLHD'] = -0.5 * tc.sum(np.log(var))
+            - 0.5 * tc.log(2 * np.pi) - n * self.dgn['RCHI-SQ']
         else:
             eig, evec = tc.symeig(covar)
             sol, lu = tc.solve(err[:, np.newaxis], covar)
             md = tc.dot(err, sol.squeeze_())
-            self.dgn['LLHD'] = -0.5 * tc.sum(tc.log(eig)) \
-                - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
+            self.dgn['LLHD'] = -0.5 * tc.sum(tc.log(eig))
+            - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
             self.dgn['MD'] = (1.0 / n) * md
 
     def plot_ci(self, ys, ya, ax=None):
@@ -165,9 +181,8 @@ def log_likelihood(x, y, hp, cov, **kwargs):
 
     wt = tc.squeeze(tc.cholesky_solve(y.reshape(-1, 1), krnchd))
 
-    llhd = 0.5 * tc.dot(wt, y) \
-        + tc.sum(tc.log(tc.diag(krnchd))) \
-        + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
+    llhd = 0.5 * tc.dot(wt, y) + tc.sum(tc.log(tc.diag(krnchd))) + \
+        0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
 
     return llhd.numpy()
 

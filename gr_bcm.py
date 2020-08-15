@@ -165,6 +165,8 @@ class GRBCM(GPR):
         beta = tc.empty(self.nc + 1, ys_g.shape[-1])
         prec = tc.empty(self.nc + 1, ys_g.shape[-1])
 
+        print(prec.shape)
+
         prec[0, :] = tc.diag(covars_g).reciprocal_()
         prec[1:, :] = tc.diagonal(covars_l, dim1=-2, dim2=-1).reciprocal()
 
@@ -180,8 +182,9 @@ class GRBCM(GPR):
         precs = prec.mul_(beta)
 
         if diag_only:
-            covars = tc.diag(precs.sum(0).reciprocal_())
+            covars = precs.sum(0).reciprocal_()
             ys = ys.mul_(precs).sum(0).mul_(covars)
+            covars = tc.diag(covars)
         else:
             covars = self.aggregate_covar(beta, covars_g, covars_l)
             ys = ys.mul_(precs).sum(0).mul_(tc.diag(covars))
