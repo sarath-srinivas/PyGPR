@@ -11,164 +11,122 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 class GRBCM(GPR):
     def __init__(self, xl, yl, xg, yg, cov, hp=None, **kargs):
 
-        self.xg = tc.clone(xg)
-        self.yg = tc.clone(yg)
-        self.cov = cov
-        self.args = kargs
-        self.need_upd = True
-        self.need_upd_g = True
-
         nc = xl.shape[0]
         nls = xl.shape[1]
-        ng = self.xg.shape[0]
-        dim = self.xg.shape[1]
+        ng = xg.shape[0]
+        dim = xg.shape[1]
+
+        tmpx = tc.empty([nc, ng, dim])
+        tmpy = tc.empty([nc, ng])
+
+        tmpx.copy_(xg)
+        tmpy.copy_(yg)
+
+        x = tc.cat((tmpx, xl), dim=1)
+        y = tc.cat((tmpy, yl), dim=1)
+
+        self.gpg = GPR(xg, yg, cov)
+        self.gpl = GPR(x, y, cov)
 
         self.nc = nc
         self.nsc = nls
         self.ng = ng
         self.dim = dim
 
-        if hp is None:
-            self.hpg = self.cov(xg)
-            self.hp = tc.empty([nc, len(self.hpg)])
-            self.hp.copy_(self.hpg)
-        else:
-            self.hp.copy_(hp)
-
-        tmpx = tc.empty([nc, ng, dim])
-        tmpy = tc.empty([nc, ng])
-
-        tmpx.copy_(self.xg)
-        tmpy.copy_(self.yg)
-
-        self.x = tc.cat((tmpx, xl), dim=1)
-        self.y = tc.cat((tmpy, yl), dim=1)
-
     def cost_fun_global(self, hp):
-        llhd = log_likelihood(self.xg, self.yg, hp, self.cov, **self.args)
-        return llhd
+        return self.gpg.cost_fun(hp)
 
     def jac_cost_fun_global(self, hp):
-        jac_llhd = jac_log_likelihood(self.xg, self.yg, hp, self.cov,
-                                      **self.args)
-        return jac_llhd
+        return self.gpg.jac_cost_fun(hp)
 
     def cost_fun_local(self, hp, cen):
-        llhd = log_likelihood(self.x[cen, :, :], self.y[cen, :], hp, self.cov,
-                              **self.args)
+        llhd = log_likelihood(self.gpl.x[cen, :, :], self.gpl.y[cen, :], hp, self.gpl.cov,
+                              **self.gpl.args)
         return llhd
 
     def jac_cost_fun_local(self, hp, cen):
-        jac_llhd = jac_log_likelihood(self.x[cen, :, :], self.y[cen, :], hp,
-                                      self.cov, **self.args)
+        jac_llhd = jac_log_likelihood(self.gpl.x[cen, :, :], self.gpl.y[cen, :], hp,
+                                      self.gpl.cov, **self.gpl.args)
         return jac_llhd
 
     def train(self, method='CG', jac=True):
 
-        self.llhd = tc.empty(self.x.shape[0])
-        self.jac_llhd = tc.empty_like(self.hp)
+        self.gpl.llhd = tc.empty(self.gpl.x.shape[0])
+        self.gpl.jac_llhd = tc.empty_like(self.gpl.hp)
 
         if jac:
             for cen in range(0, self.nc):
                 res = opt.minimize(self.cost_fun_local,
-                                   self.hp[cen, :],
+                                   self.gpl.hp[cen, :],
                                    args=(cen, ),
                                    jac=self.jac_cost_fun_local,
                                    method=method)
-                self.hp[cen, :] = tc.tensor(res.x)
-                self.llhd[cen] = tc.tensor(res.fun)
-                self.jac_llhd[cen, :] = tc.tensor(res.jac)
-
-            self.need_upd = True
+                self.gpl.hp[cen, :] = tc.tensor(res.x)
+                self.gpl.llhd[cen] = tc.tensor(res.fun)
+                self.gpl.jac_llhd[cen, :] = tc.tensor(res.jac)
 
             res = opt.minimize(self.cost_fun_global,
-                               self.hpg,
+                               self.gpg.hp,
                                jac=self.jac_cost_fun_global,
                                method=method)
-            self.hpg = tc.tensor(res.x)
-            self.llhd_g = tc.tensor(res.fun)
-            self.jac_llhd_g = tc.tensor(res.jac)
-            self.need_upd_g = True
+            self.gpg.hp = tc.tensor(res.x)
+            self.gpg.llhd = tc.tensor(res.fun)
+            self.gpg.jac_llhd = tc.tensor(res.jac)
 
             return res
 
         else:
             for cen in range(0, self.nc):
                 res = opt.minimize(self.cost_fun_local,
-                                   self.hp[cen, :],
+                                   self.gpl.hp[cen, :],
                                    args=(cen, ),
                                    jac=False,
                                    method=method)
-                self.hp[cen, :] = tc.tensor(res.x)
-                self.llhd[cen] = tc.tensor(res.fun)
-                self.jac_llhd[cen, :] = tc.tensor(res.jac)
-
-            self.need_upd = True
+                self.gpl.hp[cen, :] = tc.tensor(res.x)
+                self.gpl.llhd[cen] = tc.tensor(res.fun)
+                self.gpl.jac_llhd[cen, :] = tc.tensor(res.jac)
 
             res = opt.minimize(self.cost_fun_global,
-                               self.hpg,
+                               self.gpg.hp,
                                jac=False,
                                method=method)
-            self.hpg = tc.tensor(res.x)
-            self.llhd_g = tc.tensor(res.fun)
-            self.jac_llhd_g = tc.tensor(res.jac)
-            self.need_upd_g = True
+            self.gpg.hp = tc.tensor(res.x)
+            self.gpg.llhd = tc.tensor(res.fun)
+            self.gpg.jac_llhd = tc.tensor(res.jac)
 
             return res
 
-    def interpolate_global(self, xs):
-        if self.need_upd_g:
-            self.krng = self.cov(self.xg, hp=self.hpg, **self.args)
-            self.krnchdg = tc.cholesky(self.krng)
-            self.wtg = tc.squeeze(
-                tc.cholesky_solve(self.yg.reshape(-1, 1), self.krnchdg))
-            self.need_upd_g = False
-
-        krns = self.cov(self.xg, xs=xs, hp=self.hpg, **self.args)
-        ys = tc.mv(krns, self.wtg)
-
-        covars = super().get_pred_covar(xs, krns, krnchd=self.krnchdg, hp=self.hpg)
-
-        return ys, covars
-
-    def interpolate_local(self, xs):
-
-        if self.need_upd:
-            self.krn = self.cov(self.x, hp=self.hp, **self.args)
-            self.krnchd = tc.cholesky(self.krn)
-            y = self.y.view(-1, self.y.shape[-1], 1)
-            self.wt = tc.cholesky_solve(y, self.krnchd)
-            self.need_upd = False
-
-        krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
-        ys = tc.bmm(krns, self.wt)
-        ys.squeeze_(-1)
-        krnss = self.cov(xs, hp=self.hp, **self.args)
-        lks = tc.cholesky_solve(krns.transpose(1, 2), self.krnchd)
-        covars = krnss.sub_(tc.bmm(krns, lks))
-
-        return ys, covars
-
-    def aggregate_covar(self, beta, covars_g, covars_l):
+    def aggregate_full_covar(self, beta, covars_g, covars_l):
         covar_gl = tc.cat((covars_g[None, :, :], covars_l))
         covar_gl_chd = tc.cholesky(covar_gl)
         idt = tc.empty_like(covar_gl).copy_(tc.eye(covar_gl.shape[-1]))
         prec_gl = tc.cholesky_solve(idt, covar_gl_chd)
 
-        prec = oen.contract('c,cij->ij', beta, prec_gl, backend='torch')
+        beta_covar = tc.empty_like(prec_gl)
+
+        beta_covar = beta[:, :, None].add(beta[:, None, :])
+        beta_covar.mul_(0.5)
+
+        #prec = oen.contract('c,cij->ij', beta, prec_gl, backend='torch')
+        prec = prec_gl.mul_(beta_covar).sum(0)
         covars = tc.cholesky_inverse(tc.cholesky(prec))
 
         return covars
 
     def aggregate(self, ys_g, covars_g, ys_l, covars_l, diag_only=True):
 
+        if diag_only:
+            var_g = covars_g
+            var_l = covars_l
+        else:
+            var_g = tc.diag(covars_g)
+            var_l = tc.diagonal(covars_l, dim1=-2, dim2=-1)
+
         beta = tc.empty(self.nc + 1, ys_g.shape[-1])
         prec = tc.empty(self.nc + 1, ys_g.shape[-1])
 
-        print(prec.shape)
-
-        prec[0, :] = tc.diag(covars_g).reciprocal_()
-        prec[1:, :] = tc.diagonal(covars_l, dim1=-2, dim2=-1).reciprocal()
+        prec[0, :] = var_g.reciprocal_()
+        prec[1:, :] = var_l.reciprocal()
 
         beta[1:, :] = tc.log(prec[1:, :]).sub_(tc.log(prec[0, :])).mul_(0.5)
         beta[1, :].fill_(1.0)
@@ -184,30 +142,31 @@ class GRBCM(GPR):
         if diag_only:
             covars = precs.sum(0).reciprocal_()
             ys = ys.mul_(precs).sum(0).mul_(covars)
-            covars = tc.diag(covars)
         else:
-            covars = self.aggregate_covar(beta, covars_g, covars_l)
+            covars = self.aggregate_full_covar(beta, covars_g, covars_l)
             ys = ys.mul_(precs).sum(0).mul_(tc.diag(covars))
 
         return ys, covars
 
     def interpolate(self, xs, diag_only=True):
-        ys_g, covars_g = self.interpolate_global(xs)
-        ys_l, covars_l = self.interpolate_local(xs)
+        ys_g, covars_g = self.gpg.interpolate(xs, diag_only=diag_only)
+        ys_l, covars_l = self.gpl.interpolate(xs, diag_only=diag_only)
 
         return self.aggregate(ys_g, covars_g, ys_l, covars_l, diag_only=diag_only)
 
     def plot_hparam(self, ax=None):
         cno = range(0, self.nc)
         for i in range(0, self.dim):
-            ax.scatter(cno, self.hp[:, i], label='length scale {}'.format(i))
+            ax.scatter(cno, self.gpl.hp[:, i],
+                       label='length scale {}'.format(i))
         ax.set(xlabel='Centre no.')
         ax.legend()
 
     def plot_jac(self, ax=None):
         cno = range(0, self.nc)
         for i in range(0, self.dim):
-            ax.scatter(cno, self.jac_llhd[:, i], label='dL/dls {}'.format(i))
+            ax.scatter(cno, self.gpl.jac_llhd[:, i],
+                       label='dL/dls {}'.format(i))
         ax.set(xlabel='Centre no.')
         ax.legend()
 
