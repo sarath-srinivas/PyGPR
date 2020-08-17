@@ -24,6 +24,8 @@ class MATERN1(UNIFORM):
 
     def sample_repulsion(self, mins, maxs, min_dist):
 
+        tc.manual_seed(self.seed)
+
         dim = len(mins)
         xc = tc.empty([self.max_count, dim])
 
@@ -61,6 +63,34 @@ class MATERN1(UNIFORM):
         self.min_dist = min_dist
 
         return xc[:n, :]
+
+    def cluster_samples(self, xc, ns, mins, maxs):
+
+        tc.manual_seed(self.seed)
+
+        nc = xc.shape[0]
+        dim = xc.shape[1]
+
+        xpart = tc.empty([nc, ns, dim])
+
+        x = mins + tc.rand(10 * ns * nc, dim).mul_(maxs - mins)
+
+        dist = euclidean_dist(x, xc)
+
+        idx = tc.argmin(dist, 1)
+
+        for i in range(0, nc):
+
+            xpart[i, :, :] = x[idx == i][:ns, :]
+
+        return xpart
+
+    def partition(self, nc, ns, mins, maxs):
+
+        xc = self.sample(nc, mins, maxs)
+        x = self.cluster_samples(xc, ns, mins, maxs)
+
+        return x, xc
 
 
 def euclidean_dist(x, y):
