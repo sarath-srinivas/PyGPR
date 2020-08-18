@@ -2,6 +2,7 @@ import torch as tc
 import numpy as np
 
 tc.set_default_tensor_type(tc.DoubleTensor)
+
 tc.set_printoptions(precision=7, sci_mode=True)
 
 
@@ -108,7 +109,7 @@ def d_sq_exp_noise(x, krn, hp):
 
     assert hp.dim() == 2
 
-    dkrn = tc.empty([nc, nhp, n, n], dtype=tc.float64)
+    dkrn = tc.empty([nc, nhp, n, n])
 
     sig = hp[:, 0]
     sig_noise = hp[:, 1]
@@ -214,7 +215,7 @@ def d_sq_exp(x, krn, hp):
 
     assert hp.dim() == 2
 
-    dkrn = tc.empty([nc, nhp, n, n], dtype=tc.float64)
+    dkrn = tc.empty([nc, nhp, n, n])
 
     sig = hp[:, 0]
     ls = hp[:, 1:]

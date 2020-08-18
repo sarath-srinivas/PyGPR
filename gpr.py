@@ -8,10 +8,10 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 
 
 class GPR(object):
-    def __init__(self, x, y, cov, hp=None, **kargs):
+    def __init__(self, x, y, cov, hp=None, device=None, **kargs):
 
-        self.x = tc.clone(x)
-        self.y = tc.clone(y)
+        self.x = x
+        self.y = y
         self.cov = cov
         if hp is None:
             self._hp = self.cov(x)
@@ -74,8 +74,8 @@ class GPR(object):
         if self.need_upd:
             self.krn = self.cov(self.x, hp=hp, **self.args)
             self.krnchd = tc.cholesky(self.krn)
-            self.wt = tc.cholesky_solve(
-                self.y[..., None], self.krnchd).squeeze_(-1)
+            self.wt = tc.cholesky_solve(self.y[..., None],
+                                        self.krnchd).squeeze_(-1)
             self.need_upd = False
 
     def get_pred_covar(self, xs, krns, hp=None, diag_only=False):
@@ -89,11 +89,12 @@ class GPR(object):
         lks = tc.cholesky_solve(krnst, self.krnchd)
 
         if diag_only:
-            covars = tc.diagonal(
-                krnss, dim1=-2, dim2=-1).sub_(krns.mul_(lks.transpose(-2, -1)).sum(-1))
+            covars = tc.diagonal(krnss, dim1=-2, dim2=-1).sub_(
+                krns.mul_(lks.transpose(-2, -1)).sum(-1))
         else:
             covars = krnss.sub_(
-                tc.bmm(krns.view(-1, *krns.shape[-2:]), lks.view(-1, *lks.shape[-2:])).squeeze())
+                tc.bmm(krns.view(-1, *krns.shape[-2:]),
+                       lks.view(-1, *lks.shape[-2:])).squeeze())
 
         return covars
 
@@ -102,8 +103,8 @@ class GPR(object):
         self.update()
 
         krns = self.cov(self.x, xs=xs, hp=self.hp, **self.args)
-        ys = tc.bmm(
-            krns.view(-1, *krns.shape[-2:]), self.wt.view(-1, self.wt.shape[-1], 1))
+        ys = tc.bmm(krns.view(-1, *krns.shape[-2:]),
+                    self.wt.view(-1, self.wt.shape[-1], 1))
 
         ys = ys.squeeze_()
 
@@ -124,13 +125,13 @@ class GPR(object):
 
         if diag == True:
             self.dgn['LLHD'] = -0.5 * tc.sum(np.log(var))
-            - 0.5 * tc.log(2 * np.pi) - n * self.dgn['RCHI-SQ']
+            -0.5 * tc.log(2 * np.pi) - n * self.dgn['RCHI-SQ']
         else:
             eig, evec = tc.symeig(covar)
             sol, lu = tc.solve(err[:, np.newaxis], covar)
             md = tc.dot(err, sol.squeeze_())
             self.dgn['LLHD'] = -0.5 * tc.sum(tc.log(eig))
-            - 0.5 * tc.log(tc.tensor(2 * np.pi)) - md
+            -0.5 * tc.log(tc.tensor(2 * np.pi)) - md
             self.dgn['MD'] = (1.0 / n) * md
 
     def plot_ci(self, ys, ya, ax=None):
