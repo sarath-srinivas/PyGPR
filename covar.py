@@ -1,6 +1,6 @@
 import torch as tc
 from torch import Tensor
-from typing import List
+from typing import List, Dict
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 tc.set_printoptions(precision=7, sci_mode=True)
@@ -13,30 +13,31 @@ class Covar():
     """
 
     def __init__(self) -> None:
-        self.hyper_param: Tensor = NotImplemented
+        self.params: Tensor = NotImplemented
+        self.params_dict: Dict[str, Tensor] = {}
 
-    def hyper_param_size(self, x: Tensor) -> int:
+    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
         raise NotImplementedError
 
-    def kernel(self, x: Tensor, xp: Tensor = None, hp: Tensor = None)\
-            -> Tensor:
-        raise NotImplementedError
-
-    def kernel_and_grad(self, x: Tensor, hp: Tensor = None) ->  \
-            List[Tensor]:
+    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
         raise NotImplementedError
 
 
 class Squared_exponential(Covar):
     '''
-     Squared exponential covariance K(x,x') = exp(-|x-x'|^2)
+     Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
     '''
 
-    def __init__(self) -> None:
-        self.hyper_param: Tensor = NotImplemented
-
-    def hyper_param_size(self, x: Tensor) -> int:
-        return x.shape[-1] + 2
+    def __init__(self, x: Tensor) -> None:
+        super().__init__()
+        xb = x.view((-1, x.shape[-2], x.shape[-1]))
+        dim = xb.shape[-1]
+        nc = xb.shape[0]
+        self.params: Tensor = tc.ones([nc, dim+2])
+        self.params_dict["sig_y"] = self.params[:, 0].squeeze_(0)
+        self.params_dict["sig_noise"] = self.params[:, 1].squeeze_(0)
+        self.params_dict["ls"] = self.params[:, 2:].squeeze_(0)
+        self.params.squeeze_(0)
 
     def distance(self, x: Tensor, xp: Tensor = None) -> Tensor:
         x = x.view((-1, x.shape[-2], x.shape[-1]))
@@ -62,25 +63,13 @@ class Squared_exponential(Covar):
 
         return sqd.squeeze(0)
 
-    def kernel(self, x: Tensor, xp: Tensor = None, hp: Tensor = None) \
-            -> Tensor:
+    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
+
+        hp = self.params
 
         x = x.view((-1, x.shape[-2], x.shape[-1]))
 
-        dim = x.shape[-1]
-        nc = x.shape[0]
-
-        if hp is None:
-            hp = tc.ones([nc, dim + 2])
-            hp[:, 1].fill_(1E-4)
-            self.hyper_param = hp.squeeze_(0)
-        else:
-            self.hyper_param = hp
-
-        if hp.dim() == 1:
-            hp = hp.view((nc, -1))
-
-        assert hp.dim() == 2
+        hp = hp.view((-1, hp.shape[-1]))
 
         sig = hp[:, 0]
         sig_noise = hp[:, 1]
@@ -119,25 +108,20 @@ class Squared_exponential(Covar):
 
         return sqd
 
-    def kernel_and_grad(self, x: Tensor, hp: Tensor = None) \
-            -> List[Tensor]:
+    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
 
-        krn = self.kernel(x, hp=hp)
+        hp = self.params
+
+        hp = hp.view((-1, hp.shape[-1]))
+
+        krn = self.kernel(x)
 
         x = x.view((-1, x.shape[-2], x.shape[-1]))
         krn = krn.view((-1, krn.shape[-2], krn.shape[-1]))
 
-        if hp is None:
-            hp = self.hyper_param
-
         nc = x.shape[0]
         nhp = hp.shape[-1]
         n = krn.shape[-1]
-
-        if hp.dim() == 1:
-            hp = hp.view((nc, -1))
-
-        assert hp.dim() == 2
 
         dkrn = tc.empty([nc, nhp, n, n])
 
@@ -204,19 +188,6 @@ Parameters:
 Returns:
     dkrn: Tensor[..., nhp, n, n]
           Batched matrix derivative wrt each hyperparameter.
-"""
-
-
-Covar.hyper_param_size.__doc__ = """
-Gives the number of hyperparameters for this covariance kernel.
-
-Parameters:
-    x: Tensor[..., n, dim]
-        Batched training samples. Only the dim value is used.
-
-Returns:
-    nhp: int
-         The number of hyperparameters.
 """
 
 
