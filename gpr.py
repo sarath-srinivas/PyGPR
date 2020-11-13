@@ -13,9 +13,13 @@ class GPR():
     """
      Class for Gaussian process regression.
     """
-
-    def __init__(self, x: Tensor, y: Tensor, cov: Covar = None,
-                 loss: Loss = None, opt: Opt = None, var: Var = None) -> None:
+    def __init__(self,
+                 x: Tensor,
+                 y: Tensor,
+                 cov: Covar = None,
+                 loss: Loss = None,
+                 opt: Opt = None,
+                 var: Var = None) -> None:
 
         self.x: Tensor = x
         self.y: Tensor = y

@@ -11,7 +11,6 @@ class Covar():
      Base class for covariance kernels for Gaussian process
      regression.
     """
-
     def __init__(self) -> None:
         self.params: Tensor = NotImplemented
         self.params_dict: Dict[str, Tensor] = {}
@@ -27,13 +26,12 @@ class Squared_exponential(Covar):
     '''
      Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
     '''
-
     def __init__(self, x: Tensor) -> None:
         super().__init__()
         xb = x.view((-1, x.shape[-2], x.shape[-1]))
         dim = xb.shape[-1]
         nc = xb.shape[0]
-        self.params: Tensor = tc.ones([nc, dim+2])
+        self.params: Tensor = tc.ones([nc, dim + 2])
         self.params_dict["sig_y"] = self.params[:, 0].squeeze_(0)
         self.params_dict["sig_noise"] = self.params[:, 1].squeeze_(0)
         self.params_dict["ls"] = self.params[:, 2:].squeeze_(0)
@@ -47,7 +45,7 @@ class Squared_exponential(Covar):
         if xp is None:
 
             sqd = -2.0 * tc.matmul(x, x.transpose(1, 2)) \
-                 + x2.unsqueeze(2).add(x2.unsqueeze(1))
+                + x2.unsqueeze(2).add(x2.unsqueeze(1))
 
         else:
             xp = xp.view((-1, xp.shape[-2], xp.shape[-1]))
@@ -173,7 +171,6 @@ Returns:
                 Covariance kernel matrix K(x,x')
 """
 
-
 Covar.kernel_and_grad.__doc__ = """
 Derivative of the covariance kernel wrt hyperparameters.
     dK(x,x) / d\theta_i
@@ -189,7 +186,6 @@ Returns:
     dkrn: Tensor[..., nhp, n, n]
           Batched matrix derivative wrt each hyperparameter.
 """
-
 
 Squared_exponential.distance.__doc__ = """
 Euclidean distance matrix between x and xp.

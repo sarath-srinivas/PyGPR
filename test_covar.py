@@ -1,5 +1,5 @@
 import torch as tc
-from typing import Any
+from typing import Callable
 
 # from gpr import log_likelihood, jac_log_likelihood
 from .covar import Squared_exponential, Covar
@@ -11,14 +11,18 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 n = (10, 100, 1000)
 dim = (2, 5)
 
-covars = (Squared_exponential,)
+covars = (Squared_exponential, )
 
 tparams = list(product(covars, n, dim))
 
+T_Covar = Callable[..., Covar]
+
 
 @pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_symmetric(covar: Any, n: int, dim: int, tol: float = 1e-7) \
-        -> None:
+def test_covar_symmetric(covar: T_Covar,
+                         n: int,
+                         dim: int,
+                         tol: float = 1e-7) -> None:
     x = tc.rand([n, dim])
     cov = covar(x)
     cov.params = tc.rand_like(cov.params)
@@ -30,7 +34,7 @@ def test_covar_symmetric(covar: Any, n: int, dim: int, tol: float = 1e-7) \
 
 
 @pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_posdef(covar: Any, n: int, dim: int, tol=1e-7) -> None:
+def test_covar_posdef(covar: T_Covar, n: int, dim: int, tol=1e-7) -> None:
     x = tc.rand([n, dim])
     cov = covar(x)
     cov.params = tc.rand_like(cov.params)
@@ -44,7 +48,7 @@ def test_covar_posdef(covar: Any, n: int, dim: int, tol=1e-7) -> None:
 
 
 @pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_batch(covar: Any, n: int, dim: int) -> None:
+def test_covar_batch(covar: T_Covar, n: int, dim: int) -> None:
     nc = 4
     xb = tc.rand(nc, n, dim)
     covb = covar(xb)
@@ -73,8 +77,10 @@ def test_covar_batch(covar: Any, n: int, dim: int) -> None:
 
 
 @pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_deriv(covar: Any, n: int, dim: int, eps_diff: float = 1e-5) \
-        -> None:
+def test_covar_deriv(covar: T_Covar,
+                     n: int,
+                     dim: int,
+                     eps_diff: float = 1e-5) -> None:
     x = tc.rand(n, dim)
     cov: Covar = covar(x)
     hp = tc.rand_like(cov.params)
