@@ -1,21 +1,93 @@
 import torch as tc
-from typing import Callable
+from typing import Callable, Sequence
 
 # from gpr import log_likelihood, jac_log_likelihood
-from .covar import Squared_exponential, Covar
+from .covar import Squared_exponential, Covar, Compose
 from itertools import product
 import pytest as pyt
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
+T_Covar = Callable[..., Covar]
+
 n = (10, 100, 1000)
+np = (5, 50, 500)
 dim = (2, 5)
 
-covars = (Squared_exponential, )
+composes = ([Squared_exponential, Squared_exponential],
+            [Squared_exponential, Squared_exponential, Squared_exponential])
+
+tparams = list(product(composes, n, np, dim))
+
+
+@pyt.mark.parametrize("covars, n, np, dim", tparams)
+def test_compose_covar(covars: Sequence[T_Covar],
+                       n: int,
+                       np: int,
+                       dim: int,
+                       tol: float = 1e-7) -> None:
+    x = tc.rand([n, dim])
+    xp = tc.rand([np, dim])
+    cov_c = Compose(x, covars)
+    cov_c.params = tc.rand_like(cov_c.params)
+    krn_c = cov_c.kernel(x, xp=xp)
+
+    krn = tc.zeros_like(krn_c)
+
+    chunks = [covar.params.shape[-1] for covar in cov_c.covars]
+    params = cov_c.params.split(chunks, dim=-1)
+
+    for i, covar in enumerate(covars):
+        cov = covar(x)
+        cov.params = params[i]
+        krn.add_(cov.kernel(x, xp=xp))
+
+    assert tc.allclose(krn_c, krn, atol=tol)
+
+    return None
+
+
+tparams = list(product(composes, n, dim))
+
+
+@pyt.mark.parametrize("covars, n, dim", tparams)
+def test_compose_deriv_covar(covars: Sequence[T_Covar],
+                             n: int,
+                             dim: int,
+                             tol: float = 1e-7) -> None:
+    x = tc.rand([n, dim])
+    cov_c = Compose(x, covars)
+    cov_c.params = tc.rand_like(cov_c.params)
+    krn_c, dkrn_c = cov_c.kernel_and_grad(x)
+
+    krn = tc.zeros_like(krn_c)
+
+    chunks = [covar.params.shape[-1] for covar in cov_c.covars]
+    params = cov_c.params.split(chunks, dim=-1)
+
+    dkrns = []
+
+    for i, covar in enumerate(covars):
+        cov = covar(x)
+        cov.params = params[i]
+        krn.add_(cov.kernel_and_grad(x)[0])
+        dkrns.append(cov.kernel_and_grad(x)[1])
+
+    dkrn = tc.cat(dkrns, dim=-3)
+
+    assert tc.allclose(krn_c, krn, atol=tol)
+    assert tc.allclose(dkrn_c, dkrn, atol=tol)
+
+    return None
+
+
+def compose(x):
+    return Compose(x, [Squared_exponential, Squared_exponential])
+
+
+covars = (Squared_exponential, compose)
 
 tparams = list(product(covars, n, dim))
-
-T_Covar = Callable[..., Covar]
 
 
 @pyt.mark.parametrize("covar, n, dim", tparams)

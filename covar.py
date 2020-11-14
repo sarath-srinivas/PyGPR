@@ -1,6 +1,6 @@
 import torch as tc
 from torch import Tensor
-from typing import List, Dict
+from typing import List, Dict, Sequence, Callable
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 tc.set_printoptions(precision=7, sci_mode=True)
@@ -20,6 +20,51 @@ class Covar():
 
     def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
         raise NotImplementedError
+
+
+T_Covar = Callable[..., Covar]
+
+
+class Compose(Covar):
+    """
+     Class for composing covariance kernels to form new one.
+    """
+    def __init__(self, x: Tensor, covars: Sequence[T_Covar]) -> None:
+        self.covars = [covar(x) for covar in covars]
+        self.params = tc.cat([cov.params for cov in self.covars], dim=-1)
+
+    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
+
+        chunks = [covar.params.shape[-1] for covar in self.covars]
+        params = self.params.split(chunks, dim=-1)
+
+        self.covars[0].params = params[0]
+        krn = self.covars[0].kernel(x, xp)
+
+        for i in range(1, len(self.covars)):
+            self.covars[i].params = params[i]
+            krn.add_(self.covars[i].kernel(x, xp))
+
+        return krn
+
+    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
+
+        chunks = [covar.params.shape[-1] for covar in self.covars]
+        params = self.params.split(chunks, dim=-1)
+
+        dkrns = []
+        self.covars[0].params = params[0]
+        krn, dkrn1 = self.covars[0].kernel_and_grad(x)
+        dkrns.append(dkrn1)
+
+        for i in range(1, len(self.covars)):
+            self.covars[i].params = params[i]
+            krn.add_(self.covars[i].kernel_and_grad(x)[0])
+            dkrns.append(self.covars[i].kernel_and_grad(x)[1])
+
+        dkrn = tc.cat(dkrns, dim=-3)
+
+        return [krn, dkrn]
 
 
 class Squared_exponential(Covar):
