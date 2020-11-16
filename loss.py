@@ -1,7 +1,6 @@
 import torch as tc
 import numpy as np
 from numpy import ndarray
-import opt_einsum as oes
 from typing import Tuple
 from .gpr import GPR
 
@@ -57,8 +56,8 @@ class MLE(Loss):
         wt = tc.cholesky_solve(y.reshape(-1, 1), krnchd).squeeze_()
         kk = tc.cholesky_solve(dkrn, krnchd)
 
-        # tr1 = tc.tensordot(dkrn, wt[:, None].mul(wt[None, :]), dims=2)
-        tr1 = oes.contract('i,kij,j->k', wt, dkrn, wt, backend='torch')
+        tr1 = tc.tensordot(dkrn, wt[:, None].mul(wt[None, :]), dims=2)
+        # tr1 = oes.contract('i,kij,j->k', wt, dkrn, wt, backend='torch')
         tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
 
         jac_llhd = tr1.sub_(tr2).mul_(-0.5)
