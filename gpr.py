@@ -1,46 +1,45 @@
 import torch as tc
 from torch import Tensor
 from typing import Sequence
-from covar import Covar, Squared_exponential
-from loss import Loss, MLE
-from opt import Opt, CG
-from var import Var, Exact_var
-
+from .covar import Covar
 tc.set_default_tensor_type(tc.DoubleTensor)
 
 
 class GPR():
     """
-     Class for Gaussian process regression.
+     Base class for Gaussian process regression models.
     """
-    def __init__(self,
-                 x: Tensor,
-                 y: Tensor,
-                 cov: Covar = None,
-                 loss: Loss = None,
-                 opt: Opt = None,
-                 var: Var = None) -> None:
-
+    def __init__(self, x: Tensor, y: Tensor, cov: Covar) -> None:
         self.x: Tensor = x
         self.y: Tensor = y
+        self.cov = cov
 
-        if cov is None:
-            cov = Squared_exponential(x)
-        self.cov: Covar = cov
+        self.params: Tensor = NotImplemented
 
-        if loss is None:
-            loss = MLE(x, y, self.cov)
+        return None
 
-        if opt is None:
-            opt = CG()
+    def set_params(self, params: Tensor) -> None:
+        raise NotImplementedError
 
-        if var is None:
-            var = Exact_var()
+    def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
+        raise NotImplementedError
 
-        self.loss: Loss = loss
-        self.opt: Opt = opt
-        self.var: Var = var
-        self.params: Tensor = self.params
+    def predict_var(self, xp: Tensor, **kwrgs: Tensor) -> Tensor:
+        raise NotImplementedError
+
+    def predict_covar(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
+        raise NotImplementedError
+
+
+class Exact_GP(GPR):
+    """
+     Exact GP model.
+    """
+    def __init__(self, x: Tensor, y: Tensor, cov: Covar) -> None:
+
+        super().__init__(x, y, cov)
+
+        self.set_params(cov.params)
 
         self.krn: Tensor = NotImplemented
         self.wt: Tensor = NotImplemented
@@ -50,9 +49,10 @@ class GPR():
 
         return None
 
-    def train(self) -> None:
-
-        self.opt.minimize(self.loss.loss_grad(self.params))
+    def set_params(self, params: Tensor) -> None:
+        self.params = params
+        self.cov.params = params
+        self.need_upd = True
         return None
 
     def update(self) -> None:
@@ -74,8 +74,93 @@ class GPR():
         ys = ys.squeeze_()
 
         if diag_only is True:
-            covars = self.var.pred_covar(xp, self, krns=krns)
+            covars = self.predict_covar(xp, krns=krns)
         else:
-            covars = self.var.pred_var(xp, self, krns=krns)
+            covars = self.predict_var(xp, krns=krns)
 
         return [ys, covars]
+
+    def predict_var(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
+        krns = kwargs['krns']
+        krnss = self.cov.kernel(xp)
+        krnst = krns.transpose(-2, -1)
+        lks = tc.cholesky_solve(krnst, self.krnchd)
+
+        var = tc.diagonal(krnss, dim1=-2, dim2=-1).sub_(
+            krns.mul_(lks.transpose(-2, -1)).sum(-1))
+
+        return var
+
+    def predict_covar(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
+        krns = kwargs['krns']
+        krnss = self.cov.kernel(xp)
+        krnst = krns.transpose(-2, -1)
+        lks = tc.cholesky_solve(krnst, self.krnchd)
+
+        covars = krnss.sub_(
+            tc.bmm(krns.view(-1, *krns.shape[-2:]),
+                   lks.view(-1, *lks.shape[-2:])).squeeze())
+
+        return covars
+
+
+# Docs hereafter
+
+GPR.predict.__doc__ = """
+Get Gaussian process mean prediction with covariance for xp.
+
+Parameters
+----------
+xp: Tensor[..., np, dim]
+    Batched Evaluation samples at which the interpolation is required.
+    It should be atleast 2D tensor.
+
+diag_only: bool, optional
+    If True computes only the diagonal of the prediction covariance.
+    defaults to False.
+
+Returns
+-------
+[ Tensor[..., np], Tensor[..., np, np] ]\
+    or [ Tensor[..., np], Tensor[..., np] ]
+    If diag_only is False, returns mean and covariance matrix.
+    If diag_only is True, returns mean and variance.
+"""
+
+GPR.predict_var.__doc__ = """
+Variance estimate of the posterior Gaussian process at xp.
+..:math: x^2 = y^2
+
+Parameters
+----------
+xp: Tensor[..., np, dim]
+    Batched Evaluation samples at which the interpolation is required.
+    It should be atleast 2D tensor.
+
+**kwargs: Tensor
+    Keyword arguments.
+
+Returns
+-------
+Tensor[np]
+    The variance estimate of targets at xp.
+"""
+
+GPR.predict_covar.__doc__ = """
+Covariance estimate of the posterior Gaussian process at xp.
+..:math: x^2 = y^2
+
+Parameters
+----------
+xp: Tensor[..., np, dim]
+    Batched Evaluation samples at which the interpolation is required.
+    It should be atleast 2D tensor.
+
+**kwargs: Tensor
+    Keyword arguments.
+
+Returns
+-------
+Tensor[np, np]
+    The covariance matrix of targets at xp.
+"""
