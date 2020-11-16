@@ -146,6 +146,7 @@ class Squared_exponential(Covar):
             sqd.mul_(sig[:, None, None].square())
 
         hp.squeeze_(0)
+        x.squeeze_(0)
 
         sqd.squeeze_(0)
 
@@ -175,9 +176,9 @@ class Squared_exponential(Covar):
 
         idt = tc.empty_like(krn).copy_(tc.eye(n))
         krn_noise = idt.mul(eps[:, None, None])
-        krn = krn.sub(krn_noise)
+        krns = krn.sub(krn_noise)
 
-        dkrn[:, 0, :, :] = krn.mul(sig[:, None, None].reciprocal().mul_(2.0))
+        dkrn[:, 0, :, :] = krns.mul(sig[:, None, None].reciprocal().mul_(2.0))
         dkrn[:, 1, :, :] = idt.mul_(sig_noise[:, None, None].mul(2.0))
 
         xt = x.transpose(-2, -1)
@@ -203,48 +204,71 @@ class Squared_exponential(Covar):
 Covar.kernel.__doc__ = """
 Covariance kernel matrix for batched samples x and test samples xp.
 
-Parameters:
-    x: Tensor[..., n, dim]
-        Batched Training samples.
-    xp: Tensor[..., m, dim]
-        Batched Test samples
-    hp: Tensor[..., nhp]
-        Batched Hyperparameter of the covariance,
+Parameters
+----------
+x: Tensor[..., n, dim]
+    Batched Training samples.
+xp: Tensor[..., m, dim]
+    Batched Test samples
+hp: Tensor[..., nhp]
+    Batched Hyperparameter of the covariance,
 
-Returns:
-    krn_mat: Tensor[..., m, n]
-                Covariance kernel matrix K(x,x')
+Returns
+-------
+Tensor[..., m, n]
+    Covariance kernel matrix K(x,x')
 """
 
 Covar.kernel_and_grad.__doc__ = """
 Derivative of the covariance kernel wrt hyperparameters.
-    dK(x,x) / d\theta_i
+:math:`\frac{dK(x,x)}{d\theta_i}`
 
-Parameters:
-    x: Tensor[..., n, dim]
-        Batched training samples
-    hp: Tensor[..., nhp]
-        Batched hyperparameters at which the derivative is taken.
-        if None, the object internal Covar.hyper_parameter is used.
+Parameters
+----------
+x: Tensor[..., n, dim]
+    Batched training samples
+hp: Tensor[..., nhp]
+    Batched hyperparameters at which the derivative is taken.
+    if None, the object internal Covar.hyper_parameter is used.
 
-Returns:
-    dkrn: Tensor[..., nhp, n, n]
-          Batched matrix derivative wrt each hyperparameter.
+Returns
+-------
+Tensor[..., nhp, n, n]
+    Batched matrix derivative wrt each hyperparameter.
 """
 
 Squared_exponential.distance.__doc__ = """
 Euclidean distance matrix between x and xp.
 
-Parameters:
-    x: Tensor[..., n, dim]
-        Batched train samples
-    xp: Tensor[..., m, dim]
-        Batched test samples
+Parameters
+----------
+x: Tensor[..., n, dim]
+    Batched train samples
+xp: Tensor[..., m, dim]
+    Batched test samples
 
 N.B: Only one of x or xp allowed to be batched.
 
-Returns:
-    sqd: Tensor[..., m, n]
-        Distance matrix between x and xp
-        if xp = None then returns distance matrix of x.
+Returns
+-------
+Tensor[..., m, n]
+    Distance matrix between x and xp
+    if xp = None then returns distance matrix of x.
+"""
+
+Compose.__init__.__doc__ = """
+
+Returns a Covar object composed form covars.
+
+Parameters
+----------
+x: Tensor
+    Batched train samples
+covars: List[Covar]
+    List of Covar kernel classes to be added
+
+Returns
+-------
+Covar
+    Covar kernel object.
 """
