@@ -28,19 +28,19 @@ def test_compose_covar(covars: Sequence[T_Covar],
                        tol: float = 1e-7) -> None:
     x = tc.rand([n, dim])
     xp = tc.rand([np, dim])
-    cov_c = Compose(x, covars)
-    cov_c.params = tc.rand_like(cov_c.params)
-    krn_c = cov_c.kernel(x, xp=xp)
+    cov_c = Compose(covars)
+    hp_shape = cov_c.get_params_shape(x)
+    hp = tc.rand(hp_shape)
+    krn_c = cov_c.kernel(hp, x, xp=xp)
 
     krn = tc.zeros_like(krn_c)
 
-    chunks = [covar.params.shape[-1] for covar in cov_c.covars]
-    params = cov_c.params.split(chunks, dim=-1)
+    chunks = [covar.get_params_shape(x)[-1] for covar in cov_c.covars]
+    params = hp.split(chunks, dim=-1)
 
     for i, covar in enumerate(covars):
-        cov = covar(x)
-        cov.params = params[i]
-        krn.add_(cov.kernel(x, xp=xp))
+        cov = covar()
+        krn.add_(cov.kernel(params[i], x, xp=xp))
 
     assert tc.allclose(krn_c, krn, atol=tol)
 
@@ -56,22 +56,22 @@ def test_compose_deriv_covar(covars: Sequence[T_Covar],
                              dim: int,
                              tol: float = 1e-7) -> None:
     x = tc.rand([n, dim])
-    cov_c = Compose(x, covars)
-    cov_c.params = tc.rand_like(cov_c.params)
-    krn_c, dkrn_c = cov_c.kernel_and_grad(x)
+    cov_c = Compose(covars)
+    hp_shape = cov_c.get_params_shape(x)
+    hp = tc.rand(hp_shape)
+    krn_c, dkrn_c = cov_c.kernel_and_grad(hp, x)
 
     krn = tc.zeros_like(krn_c)
 
-    chunks = [covar.params.shape[-1] for covar in cov_c.covars]
-    params = cov_c.params.split(chunks, dim=-1)
+    chunks = [covar.get_params_shape(x)[-1] for covar in cov_c.covars]
+    params = hp.split(chunks, dim=-1)
 
     dkrns = []
 
     for i, covar in enumerate(covars):
-        cov = covar(x)
-        cov.params = params[i]
-        krn.add_(cov.kernel_and_grad(x)[0])
-        dkrns.append(cov.kernel_and_grad(x)[1])
+        cov = covar()
+        krn.add_(cov.kernel_and_grad(params[i], x)[0])
+        dkrns.append(cov.kernel_and_grad(params[i], x)[1])
 
     dkrn = tc.cat(dkrns, dim=-3)
 
@@ -81,8 +81,8 @@ def test_compose_deriv_covar(covars: Sequence[T_Covar],
     return None
 
 
-def compose(x):
-    return Compose(x, [Squared_exponential, Squared_exponential])
+def compose():
+    return Compose([Squared_exponential, Squared_exponential])
 
 
 covars = (Squared_exponential, compose)
@@ -96,9 +96,9 @@ def test_covar_symmetric(covar: T_Covar,
                          dim: int,
                          tol: float = 1e-7) -> None:
     x = tc.rand([n, dim])
-    cov = covar(x)
-    cov.params = tc.rand_like(cov.params)
-    krn = cov.kernel(x)
+    cov = covar()
+    hp = tc.rand(cov.get_params_shape(x))
+    krn = cov.kernel(hp, x)
 
     assert tc.allclose(krn, krn.t(), atol=tol)
 
@@ -108,9 +108,9 @@ def test_covar_symmetric(covar: T_Covar,
 @pyt.mark.parametrize("covar, n, dim", tparams)
 def test_covar_posdef(covar: T_Covar, n: int, dim: int, tol=1e-7) -> None:
     x = tc.rand([n, dim])
-    cov = covar(x)
-    cov.params = tc.rand_like(cov.params)
-    krn = cov.kernel(x)
+    cov = covar()
+    hp = tc.rand(cov.get_params_shape(x))
+    krn = cov.kernel(hp, x)
 
     eig = tc.eig(krn)[0][:, 0]
 
@@ -123,21 +123,17 @@ def test_covar_posdef(covar: T_Covar, n: int, dim: int, tol=1e-7) -> None:
 def test_covar_batch(covar: T_Covar, n: int, dim: int) -> None:
     nc = 4
     xb = tc.rand(nc, n, dim)
-    covb = covar(xb)
-    covb.params = tc.rand_like(covb.params)
+    covb = covar()
+    hpb = tc.rand(covb.get_params_shape(xb))
 
-    krn_batch, dkrn_batch = covb.kernel_and_grad(xb)
+    krn_batch, dkrn_batch = covb.kernel_and_grad(hpb, xb)
 
-    cov = covar(xb[0, :, :])
+    cov = covar()
 
-    cov.params = covb.params[0, :]
-    krn1, dkrn1 = cov.kernel_and_grad(xb[0, :, :])
-    cov.params = covb.params[1, :]
-    krn2, dkrn2 = cov.kernel_and_grad(xb[1, :, :])
-    cov.params = covb.params[2, :]
-    krn3, dkrn3 = cov.kernel_and_grad(xb[2, :, :])
-    cov.params = covb.params[3, :]
-    krn4, dkrn4 = cov.kernel_and_grad(xb[3, :, :])
+    krn1, dkrn1 = cov.kernel_and_grad(hpb[0, :], xb[0, :, :])
+    krn2, dkrn2 = cov.kernel_and_grad(hpb[1, :], xb[1, :, :])
+    krn3, dkrn3 = cov.kernel_and_grad(hpb[2, :], xb[2, :, :])
+    krn4, dkrn4 = cov.kernel_and_grad(hpb[3, :], xb[3, :, :])
 
     krn = tc.stack((krn1, krn2, krn3, krn4), dim=0)
     dkrn = tc.stack((dkrn1, dkrn2, dkrn3, dkrn4), dim=0)
@@ -154,12 +150,11 @@ def test_covar_deriv(covar: T_Covar,
                      dim: int,
                      eps_diff: float = 1e-5) -> None:
     x = tc.rand(n, dim)
-    cov: Covar = covar(x)
-    hp = tc.rand_like(cov.params)
-    nhp = cov.params.shape[-1]
+    cov: Covar = covar()
+    hp = tc.rand(cov.get_params_shape(x))
+    nhp = hp.shape[-1]
 
-    cov.params = tc.clone(hp)
-    krn, dkrn = cov.kernel_and_grad(x)
+    krn, dkrn = cov.kernel_and_grad(hp, x)
 
     dkrn_diff = tc.ones_like(dkrn)
 
@@ -167,10 +162,8 @@ def test_covar_deriv(covar: T_Covar,
         eps = tc.zeros_like(hp)
         eps[k] = eps_diff
 
-        cov.params = tc.clone(hp)
-        krn = cov.kernel(x)
-        cov.params.add_(eps)
-        krn_eps = cov.kernel(x)
+        krn = cov.kernel(hp, x)
+        krn_eps = cov.kernel(hp.add(eps), x)
 
         dkrn_diff[k, :, :] = krn_eps.sub_(krn).div_(eps_diff)
 

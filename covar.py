@@ -1,6 +1,6 @@
 import torch as tc
 from torch import Tensor
-from typing import List, Dict, Sequence, Callable
+from typing import List, Sequence, Callable
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 tc.set_printoptions(precision=7, sci_mode=True)
@@ -11,14 +11,13 @@ class Covar():
      Base class for covariance kernels for Gaussian process
      regression.
     """
-    def __init__(self) -> None:
-        self.params: Tensor = NotImplemented
-        self.params_dict: Dict[str, Tensor] = {}
-
-    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
+    def get_params_shape(self, x: Tensor) -> List[int]:
         raise NotImplementedError
 
-    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
+    def kernel(self, params: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
+        raise NotImplementedError
+
+    def kernel_and_grad(self, params: Tensor, x: Tensor) -> List[Tensor]:
         raise NotImplementedError
 
 
@@ -29,38 +28,48 @@ class Compose(Covar):
     """
      Class for composing covariance kernels to form new one.
     """
-    def __init__(self, x: Tensor, covars: Sequence[T_Covar]) -> None:
-        self.covars = [covar(x) for covar in covars]
-        self.params = tc.cat([cov.params for cov in self.covars], dim=-1)
+    def __init__(self, covars: Sequence[T_Covar]) -> None:
+        self.covars = [covar() for covar in covars]
 
-    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
+    def get_params_shape(self, x: Tensor) -> List[int]:
+        nparams = sum([covar.get_params_shape(x)[-1] for covar in self.covars])
 
-        chunks = [covar.params.shape[-1] for covar in self.covars]
-        params = self.params.split(chunks, dim=-1)
+        shape = self.covars[0].get_params_shape(x)
+        if len(shape) > 1:
+            shapes = [shape[-2], nparams]
+        else:
+            shapes = [nparams]
 
-        self.covars[0].params = params[0]
-        krn = self.covars[0].kernel(x, xp)
+        return shapes
+
+    def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
+
+        assert list(hp.shape) == self.get_params_shape(x)
+
+        chunks = [covar.get_params_shape(x)[-1] for covar in self.covars]
+        params = hp.split(chunks, dim=-1)
+
+        krn = self.covars[0].kernel(params[0], x, xp)
 
         for i in range(1, len(self.covars)):
-            self.covars[i].params = params[i]
-            krn.add_(self.covars[i].kernel(x, xp))
+            krn.add_(self.covars[i].kernel(params[i], x, xp))
 
         return krn
 
-    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
+    def kernel_and_grad(self, hp: Tensor, x: Tensor) -> List[Tensor]:
 
-        chunks = [covar.params.shape[-1] for covar in self.covars]
-        params = self.params.split(chunks, dim=-1)
+        assert list(hp.shape) == self.get_params_shape(x)
+
+        chunks = [covar.get_params_shape(x)[-1] for covar in self.covars]
+        params = hp.split(chunks, dim=-1)
 
         dkrns = []
-        self.covars[0].params = params[0]
-        krn, dkrn1 = self.covars[0].kernel_and_grad(x)
+        krn, dkrn1 = self.covars[0].kernel_and_grad(params[0], x)
         dkrns.append(dkrn1)
 
         for i in range(1, len(self.covars)):
-            self.covars[i].params = params[i]
-            krn.add_(self.covars[i].kernel_and_grad(x)[0])
-            dkrns.append(self.covars[i].kernel_and_grad(x)[1])
+            krn.add_(self.covars[i].kernel_and_grad(params[i], x)[0])
+            dkrns.append(self.covars[i].kernel_and_grad(params[i], x)[1])
 
         dkrn = tc.cat(dkrns, dim=-3)
 
@@ -71,16 +80,12 @@ class Squared_exponential(Covar):
     '''
      Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
     '''
-    def __init__(self, x: Tensor) -> None:
-        super().__init__()
+    def get_params_shape(self, x: Tensor) -> List[int]:
         xb = x.view((-1, x.shape[-2], x.shape[-1]))
         dim = xb.shape[-1]
-        nc = xb.shape[0]
-        self.params: Tensor = tc.ones([nc, dim + 2])
-        self.params_dict["sig_y"] = self.params[:, 0].squeeze_(0)
-        self.params_dict["sig_noise"] = self.params[:, 1].squeeze_(0)
-        self.params_dict["ls"] = self.params[:, 2:].squeeze_(0)
-        self.params.squeeze_(0)
+        nb = xb.shape[0]
+        shape = [nb, dim + 2] if nb > 1 else [dim + 2]
+        return shape
 
     def distance(self, x: Tensor, xp: Tensor = None) -> Tensor:
         x = x.view((-1, x.shape[-2], x.shape[-1]))
@@ -106,9 +111,9 @@ class Squared_exponential(Covar):
 
         return sqd.squeeze(0)
 
-    def kernel(self, x: Tensor, xp: Tensor = None) -> Tensor:
+    def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
 
-        hp = self.params
+        assert list(hp.shape) == self.get_params_shape(x)
 
         x = x.view((-1, x.shape[-2], x.shape[-1]))
 
@@ -152,13 +157,13 @@ class Squared_exponential(Covar):
 
         return sqd
 
-    def kernel_and_grad(self, x: Tensor) -> List[Tensor]:
+    def kernel_and_grad(self, hp: Tensor, x: Tensor) -> List[Tensor]:
 
-        hp = self.params
+        assert list(hp.shape) == self.get_params_shape(x)
+
+        krn = self.kernel(hp, x)
 
         hp = hp.view((-1, hp.shape[-1]))
-
-        krn = self.kernel(x)
 
         x = x.view((-1, x.shape[-2], x.shape[-1]))
         krn = krn.view((-1, krn.shape[-2], krn.shape[-1]))
@@ -201,11 +206,28 @@ class Squared_exponential(Covar):
 
 # Docs here
 
+Covar.get_params_shape.__doc__ = """
+Returns shape of parameters of the covariance kernel from the \
+shape of the sample tensor x.
+
+Parameters
+----------
+x: Tensor[nb,n,dim] or Tensor[n,dim]
+    The samples tensor.
+
+Returns
+-------
+List[nb, np] or List[np]
+    The shape information of the parameters of the covariance kernel.
+"""
+
 Covar.kernel.__doc__ = """
 Covariance kernel matrix for batched samples x and test samples xp.
 
 Parameters
 ----------
+params: Tensor[shape]
+    Kernel hyperparameters of shape given by :obj:get_params_shape(x)
 x: Tensor[..., n, dim]
     Batched Training samples.
 xp: Tensor[..., m, dim]
@@ -225,6 +247,8 @@ Derivative of the covariance kernel wrt hyperparameters.
 
 Parameters
 ----------
+params: Tensor[shape]
+    Kernel hyperparameters of shape given by :obj:get_params_shape(x)
 x: Tensor[..., n, dim]
     Batched training samples
 hp: Tensor[..., nhp]
@@ -262,8 +286,6 @@ Returns a Covar object composed form covars.
 
 Parameters
 ----------
-x: Tensor
-    Batched train samples
 covars: List[Covar]
     List of Covar kernel classes to be added
 
