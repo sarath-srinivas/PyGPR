@@ -14,6 +14,8 @@ class Loss():
     """
     def __init__(self, model: GPR) -> None:
         self.model: GPR = model
+        self.loss_value: float = NotImplemented
+        self.grad_value: ndarray = NotImplemented
         return None
 
     def loss(self, params: ndarray) -> float:
@@ -43,6 +45,8 @@ class MLE(Loss):
         llhd = 0.5 * tc.dot(wt, y) + tc.sum(tc.log(
             tc.diag(krnchd))) + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
 
+        self.loss_value = llhd.numpy()
+
         return llhd.numpy()
 
     def grad(self, params: ndarray) -> ndarray:
@@ -61,6 +65,8 @@ class MLE(Loss):
         tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
 
         jac_llhd = tr1.sub_(tr2).mul_(-0.5)
+
+        self.grad_value = jac_llhd.numpy()
 
         return jac_llhd.numpy()
 
@@ -83,6 +89,9 @@ class MLE(Loss):
         tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
 
         jac_llhd = tr1.sub_(tr2).mul_(-0.5)
+
+        self.loss_value = llhd.numpy()
+        self.grad_value = jac_llhd.numpy()
 
         return (llhd.numpy(), jac_llhd.numpy())
 
