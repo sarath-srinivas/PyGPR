@@ -36,7 +36,7 @@ class Exact_GP(GPR):
 
         super().__init__(x, y, cov)
 
-        self.params: Tensor = tc.ones(cov.get_params_shape(x))
+        self.params: Tensor = cov.init_params(x)
 
         self.krn: Tensor = NotImplemented
         self.wt: Tensor = NotImplemented
@@ -65,9 +65,9 @@ class Exact_GP(GPR):
         ys = ys.squeeze_()
 
         if diag_only is True:
-            covars = self.predict_covar(xp, krns=krns)
-        else:
             covars = self.predict_var(xp, krns=krns)
+        else:
+            covars = self.predict_covar(xp, krns=krns)
 
         return [ys, covars]
 
