@@ -33,9 +33,8 @@ class MLE(Loss):
      Log Marginal Likelihood for hyperparameters.
     """
     def loss(self, params: ndarray) -> float:
-        self.model.set_params(tc.from_numpy(params))
 
-        krn = self.model.cov.kernel(self.model.x)
+        krn = self.model.cov.kernel(tc.from_numpy(params), self.model.x)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
@@ -50,9 +49,9 @@ class MLE(Loss):
         return llhd.numpy()
 
     def grad(self, params: ndarray) -> ndarray:
-        self.model.set_params(tc.from_numpy(params))
 
-        krn, dkrn = self.model.cov.kernel_and_grad(self.model.x)
+        krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
+                                                   self.model.x)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
@@ -71,9 +70,9 @@ class MLE(Loss):
         return jac_llhd.numpy()
 
     def loss_and_grad(self, params: ndarray) -> Tuple[float, ndarray]:
-        self.model.set_params(tc.from_numpy(params))
 
-        krn, dkrn = self.model.cov.kernel_and_grad(self.model.x)
+        krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
+                                                   self.model.x)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y

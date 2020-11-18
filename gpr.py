@@ -18,9 +18,6 @@ class GPR():
 
         return None
 
-    def set_params(self, params: Tensor) -> None:
-        raise NotImplementedError
-
     def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
         raise NotImplementedError
 
@@ -39,7 +36,7 @@ class Exact_GP(GPR):
 
         super().__init__(x, y, cov)
 
-        self.set_params(cov.params)
+        self.params: Tensor = tc.ones(cov.get_params_shape(x))
 
         self.krn: Tensor = NotImplemented
         self.wt: Tensor = NotImplemented
@@ -49,15 +46,9 @@ class Exact_GP(GPR):
 
         return None
 
-    def set_params(self, params: Tensor) -> None:
-        self.params = params
-        self.cov.params = params
-        self.need_upd = True
-        return None
-
     def update(self) -> None:
         if self.need_upd:
-            self.krn = self.cov.kernel(self.x)
+            self.krn = self.cov.kernel(self.params, self.x)
             self.krnchd = tc.cholesky(self.krn)
             self.wt = tc.cholesky_solve(self.y[..., None],
                                         self.krnchd).squeeze_(-1)
@@ -67,7 +58,7 @@ class Exact_GP(GPR):
     def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
 
         self.update()
-        krns = self.cov.kernel(self.x, xp=xp)
+        krns = self.cov.kernel(self.params, self.x, xp)
         ys = tc.bmm(krns.view(-1, *krns.shape[-2:]),
                     self.wt.view(-1, self.wt.shape[-1], 1))
 
@@ -82,7 +73,7 @@ class Exact_GP(GPR):
 
     def predict_var(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
         krns = kwargs['krns']
-        krnss = self.cov.kernel(xp)
+        krnss = self.cov.kernel(self.params, xp)
         krnst = krns.transpose(-2, -1)
         lks = tc.cholesky_solve(krnst, self.krnchd)
 
@@ -93,7 +84,7 @@ class Exact_GP(GPR):
 
     def predict_covar(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
         krns = kwargs['krns']
-        krnss = self.cov.kernel(xp)
+        krnss = self.cov.kernel(self.params, xp)
         krnst = krns.transpose(-2, -1)
         lks = tc.cholesky_solve(krnst, self.krnchd)
 

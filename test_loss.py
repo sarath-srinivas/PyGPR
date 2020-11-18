@@ -19,7 +19,7 @@ def test_grad(n: int, dim: int, eps_diff: float = 1e-5) -> None:
     x = tc.rand([n, dim])
     y = tc.exp(-x.square().sum(1))
 
-    cov = Squared_exponential(x)
+    cov = Squared_exponential()
 
     mod = Exact_GP(x, y, cov)
 
