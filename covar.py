@@ -14,6 +14,9 @@ class Covar():
     def get_params_shape(self, x: Tensor) -> List[int]:
         raise NotImplementedError
 
+    def init_params(self, x: Tensor) -> Tensor:
+        raise NotImplementedError
+
     def kernel(self, params: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
         raise NotImplementedError
 
@@ -33,18 +36,19 @@ class Compose(Covar):
 
     def get_params_shape(self, x: Tensor) -> List[int]:
         nparams = sum([covar.get_params_shape(x)[-1] for covar in self.covars])
+        shape = list(x.shape)
+        shape[-1] = nparams
+        shape.pop(-2)
 
-        shape = self.covars[0].get_params_shape(x)
-        if len(shape) > 1:
-            shapes = [shape[-2], nparams]
-        else:
-            shapes = [nparams]
+        return shape
 
-        return shapes
+    def init_params(self, x: Tensor) -> Tensor:
+        params = [covar.init_params(x) for covar in self.covars]
+        return tc.cat(params, dim=-1)
 
     def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
 
-        assert list(hp.shape) == self.get_params_shape(x)
+        assert hp.shape[-1] == self.get_params_shape(x)[-1]
 
         chunks = [covar.get_params_shape(x)[-1] for covar in self.covars]
         params = hp.split(chunks, dim=-1)
@@ -58,7 +62,7 @@ class Compose(Covar):
 
     def kernel_and_grad(self, hp: Tensor, x: Tensor) -> List[Tensor]:
 
-        assert list(hp.shape) == self.get_params_shape(x)
+        assert hp.shape[-1] == self.get_params_shape(x)[-1]
 
         chunks = [covar.get_params_shape(x)[-1] for covar in self.covars]
         params = hp.split(chunks, dim=-1)
@@ -81,11 +85,16 @@ class Squared_exponential(Covar):
      Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
     '''
     def get_params_shape(self, x: Tensor) -> List[int]:
-        xb = x.view((-1, x.shape[-2], x.shape[-1]))
-        dim = xb.shape[-1]
-        nb = xb.shape[0]
-        shape = [nb, dim + 2] if nb > 1 else [dim + 2]
+        shape = list(x.shape)
+        shape[-1] = x.shape[-1] + 2
+        shape.pop(-2)
         return shape
+
+    def init_params(self, x: Tensor) -> Tensor:
+        shape = self.get_params_shape(x)
+        params = tc.ones(shape)
+        params.view(-1, shape[-1])[:, 1] = 1e-5
+        return params
 
     def distance(self, x: Tensor, xp: Tensor = None) -> Tensor:
         x = x.view((-1, x.shape[-2], x.shape[-1]))
@@ -113,7 +122,7 @@ class Squared_exponential(Covar):
 
     def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
 
-        assert list(hp.shape) == self.get_params_shape(x)
+        assert hp.shape[-1] == self.get_params_shape(x)[-1]
 
         x = x.view((-1, x.shape[-2], x.shape[-1]))
 
@@ -159,7 +168,7 @@ class Squared_exponential(Covar):
 
     def kernel_and_grad(self, hp: Tensor, x: Tensor) -> List[Tensor]:
 
-        assert list(hp.shape) == self.get_params_shape(x)
+        assert hp.shape[-1] == self.get_params_shape(x)[-1]
 
         krn = self.kernel(hp, x)
 
