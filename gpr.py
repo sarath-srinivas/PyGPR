@@ -49,6 +49,7 @@ class Exact_GP(GPR):
     def update(self) -> None:
         if self.need_upd:
             self.krn = self.cov.kernel(self.params, self.x)
+            self.krn.diagonal(dim1=-2, dim2=-1).add_(1e-7)
             self.krnchd = tc.cholesky(self.krn)
             self.wt = tc.cholesky_solve(self.y[..., None],
                                         self.krnchd).squeeze_(-1)

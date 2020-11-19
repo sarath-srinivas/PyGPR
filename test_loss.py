@@ -1,7 +1,7 @@
 import torch as tc
 import numpy as np
 from .gpr import Exact_GP
-from .covar import Squared_exponential
+from .covar import Squared_exponential, White_noise, Compose
 from .loss import MLE
 from itertools import product
 import pytest as pyt
@@ -15,11 +15,11 @@ tparams = list(product(n, dim))
 
 
 @pyt.mark.parametrize("n, dim", tparams)
-def test_grad(n: int, dim: int, eps_diff: float = 1e-5) -> None:
+def test_grad(n: int, dim: int, eps_diff: float = 1e-8) -> None:
     x = tc.rand([n, dim])
     y = tc.exp(-x.square().sum(1))
 
-    cov = Squared_exponential()
+    cov = Compose([Squared_exponential, White_noise])
 
     mod = Exact_GP(x, y, cov)
 
@@ -41,6 +41,4 @@ def test_grad(n: int, dim: int, eps_diff: float = 1e-5) -> None:
 
         grad_diff[k] = (val_eps - val) / eps_diff
 
-    assert np.allclose(np.log10(np.abs(grad)),
-                       np.log10(np.abs(grad_diff)),
-                       atol=1e-3)
+    assert np.max(np.abs(grad - grad_diff)) < 1e-3

@@ -1,6 +1,6 @@
 import torch as tc
 from .gpr import Exact_GP
-from .covar import Covar, Squared_exponential
+from .covar import Covar, Squared_exponential, White_noise, Compose
 from itertools import product
 import pytest as pyt
 
@@ -9,7 +9,7 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 dim = (2, 3, 7)
 n = (10, 50, 100)
 
-covars = (Squared_exponential, )
+covars = ([Squared_exponential, White_noise], )
 
 tparams = list(product(n, dim, covars))
 
@@ -19,7 +19,7 @@ def test_interpolate(n: int, dim: int, covars: Covar) -> None:
     x = tc.rand(n, dim)
     y = tc.sin(-x.sum(-1))
 
-    cov = covars()
+    cov = Compose(covars)
 
     xs = tc.clone(x)
 
@@ -40,7 +40,7 @@ def test_pred_covar(n: int,
     x = tc.rand(n, dim)
     y = tc.sin(-x.sum(-1))
 
-    cov = covars()
+    cov = Compose(covars)
 
     xs = tc.clone(x)
 
@@ -50,7 +50,7 @@ def test_pred_covar(n: int,
     eig = tc.eig(covar_s)[0][:, 0]
 
     assert tc.allclose(covar_s, covar_s.t(), atol=tol)
-    assert tc.all(eig > 0)
+    assert tc.all(eig > -tol)
 
 
 nc = (2, 5, 10)
@@ -63,7 +63,7 @@ def test_interpolate_batch(nc: int, n: int, dim: int, covars: Covar) -> None:
     x = tc.empty(nc, n, dim).copy_(xl)
     y = tc.sin(-x.sum(-1))
 
-    cov = covars()
+    cov = Compose(covars)
 
     xs = tc.clone(xl)
     ys = tc.sin(-xl.sum(-1))
@@ -87,7 +87,7 @@ def test_pred_covar_batch(nc: int,
     x = tc.empty(nc, n, dim).copy_(xl)
     y = tc.sin(-x.sum(-1))
 
-    cov = covars()
+    cov = Compose(covars)
 
     xs = tc.clone(xl)
     ys = tc.sin(-xl.sum(-1))
@@ -100,4 +100,4 @@ def test_pred_covar_batch(nc: int,
     assert covar_s.shape == (nc, n, n)
     assert tc.all(tc.diagonal(covar_s, dim1=-2, dim2=-1) < 1e-6)
     assert tc.allclose(covar_s, covar_s.transpose(-2, -1), atol=tol)
-    assert tc.all(eig > 0)
+    assert tc.all(eig > -tol)

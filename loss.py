@@ -35,6 +35,7 @@ class MLE(Loss):
     def loss(self, params: ndarray) -> float:
 
         krn = self.model.cov.kernel(tc.from_numpy(params), self.model.x)
+        krn.diagonal().add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
@@ -52,6 +53,7 @@ class MLE(Loss):
 
         krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
                                                    self.model.x)
+        krn.diagonal().add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
@@ -73,6 +75,7 @@ class MLE(Loss):
 
         krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
                                                    self.model.x)
+        krn.diagonal().add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
