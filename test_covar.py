@@ -2,7 +2,7 @@ import torch as tc
 from typing import Callable, Sequence
 
 # from gpr import log_likelihood, jac_log_likelihood
-from .covar import Squared_exponential, Covar, Compose
+from .covar import Squared_exponential, Covar, Compose, White_noise
 from itertools import product
 import pytest as pyt
 
@@ -14,8 +14,9 @@ n = (10, 100, 1000)
 np = (5, 50, 500)
 dim = (2, 5)
 
-composes = ([Squared_exponential, Squared_exponential],
-            [Squared_exponential, Squared_exponential, Squared_exponential])
+composes = ([Squared_exponential,
+             Squared_exponential], [Squared_exponential, White_noise],
+            [Squared_exponential, Squared_exponential, White_noise])
 
 tparams = list(product(composes, n, np, dim))
 
@@ -47,10 +48,10 @@ def test_compose_covar(covars: Sequence[T_Covar],
     return None
 
 
-tparams = list(product(composes, n, dim))
+tparams1 = list(product(composes, n, dim))
 
 
-@pyt.mark.parametrize("covars, n, dim", tparams)
+@pyt.mark.parametrize("covars, n, dim", tparams1)
 def test_compose_deriv_covar(covars: Sequence[T_Covar],
                              n: int,
                              dim: int,
@@ -82,10 +83,10 @@ def test_compose_deriv_covar(covars: Sequence[T_Covar],
 
 
 def compose():
-    return Compose([Squared_exponential, Squared_exponential])
+    return Compose([Squared_exponential, Squared_exponential, White_noise])
 
 
-covars = (Squared_exponential, compose)
+covars = (Squared_exponential, White_noise, compose)
 
 tparams = list(product(covars, n, dim))
 
@@ -112,6 +113,7 @@ def test_covar_posdef(covar: T_Covar, n: int, dim: int, tol=1e-7) -> None:
     hp = tc.rand(cov.get_params_shape(x))
     krn = cov.kernel(hp, x)
 
+    krn.add_(1e-7 * tc.eye(n))
     eig = tc.eig(krn)[0][:, 0]
 
     assert tc.all(eig > 0)

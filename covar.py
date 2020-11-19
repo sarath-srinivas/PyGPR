@@ -86,14 +86,13 @@ class Squared_exponential(Covar):
     '''
     def get_params_shape(self, x: Tensor) -> List[int]:
         shape = list(x.shape)
-        shape[-1] = x.shape[-1] + 2
+        shape[-1] = x.shape[-1] + 1
         shape.pop(-2)
         return shape
 
     def init_params(self, x: Tensor) -> Tensor:
         shape = self.get_params_shape(x)
         params = tc.ones(shape)
-        params.view(-1, shape[-1])[:, 1] = 1e-5
         return params
 
     def distance(self, x: Tensor, xp: Tensor = None) -> Tensor:
@@ -129,9 +128,7 @@ class Squared_exponential(Covar):
         hp = hp.view((-1, hp.shape[-1]))
 
         sig = hp[:, 0]
-        sig_noise = hp[:, 1]
-        ls = hp[:, 2:]
-        eps = sig_noise.square()
+        ls = hp[:, 1:]
         ls.unsqueeze_(1)
         xl = x.mul(ls)
 
@@ -143,10 +140,6 @@ class Squared_exponential(Covar):
             sqd.mul_(-1.0)
             sqd.exp_()
             sqd.mul_(sig[:, None, None].square())
-
-            idt = tc.empty_like(sqd).copy_(tc.eye(sqd.shape[-1]))
-            idt.mul_(eps[:, None, None])
-            sqd.add_(idt)
 
         else:
             xp = xp.view((-1, xp.shape[-2], xp.shape[-1]))
@@ -184,16 +177,9 @@ class Squared_exponential(Covar):
         dkrn = tc.empty([nc, nhp, n, n])
 
         sig = hp[:, 0]
-        sig_noise = hp[:, 1]
-        ls = hp[:, 2:]
-        eps = sig_noise.square()
+        ls = hp[:, 1:]
 
-        idt = tc.empty_like(krn).copy_(tc.eye(n))
-        krn_noise = idt.mul(eps[:, None, None])
-        krns = krn.sub(krn_noise)
-
-        dkrn[:, 0, :, :] = krns.mul(sig[:, None, None].reciprocal().mul_(2.0))
-        dkrn[:, 1, :, :] = idt.mul_(sig_noise[:, None, None].mul(2.0))
+        dkrn[:, 0, :, :] = krn.mul(sig[:, None, None].reciprocal().mul_(2.0))
 
         xt = x.transpose(-2, -1)
         diff = xt[:, :, :, None].sub(xt[:, :, None, :])
@@ -203,10 +189,68 @@ class Squared_exponential(Covar):
         diff.mul_(krn[:, None, :, :])
         diff.mul_(-2.0)
 
-        dkrn[:, 2:, :, :] = diff
+        dkrn[:, 1:, :, :] = diff
 
         x.squeeze_(0)
         hp.squeeze_(0)
+        krn.squeeze_(0)
+        dkrn.squeeze_(0)
+
+        return [krn, dkrn]
+
+
+class White_noise(Covar):
+    """
+     Gaussian noise covariance kernel
+    """
+    def get_params_shape(self, x: Tensor) -> List[int]:
+        shape = list(x.shape)
+        shape[-1] = 1
+        shape.pop(-2)
+        return shape
+
+    def init_params(self, x: Tensor) -> Tensor:
+        shape = self.get_params_shape(x)
+        params = 1e-4 * tc.ones(shape)
+        return params
+
+    def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
+        if xp is None:
+            hpb = hp.view(-1, hp.shape[-1])
+
+            nc = hpb.shape[0]
+            n = x.shape[-2]
+
+            sig_n = hpb[:, 0]
+
+            krn = tc.empty([nc, n, n]).copy_(tc.eye(n))
+            krn.mul_(sig_n[:, None, None].square())
+
+            krn.squeeze_(0)
+
+        else:
+            krn = tc.tensor(0)
+
+        return krn
+
+    def kernel_and_grad(self, hp: Tensor, x: Tensor) -> List[Tensor]:
+
+        hpb = hp.view(-1, hp.shape[-1])
+
+        krn = self.kernel(hp, x)
+        krnb = krn.view(-1, krn.shape[-2], krn.shape[-1])
+
+        nc = hpb.shape[0]
+        n = krn.shape[-1]
+        nhp = 1
+
+        sig_n = hpb[:, 0]
+
+        dkrn = tc.empty([nc, nhp, n, n])
+
+        dkrn[:, 0, :, :] = krnb.mul(sig_n[:, None,
+                                          None].reciprocal().mul_(2.0))
+
         krn.squeeze_(0)
         dkrn.squeeze_(0)
 
