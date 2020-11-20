@@ -35,15 +35,22 @@ class MLE(Loss):
     def loss(self, params: ndarray) -> float:
 
         krn = self.model.cov.kernel(tc.from_numpy(params), self.model.x)
-        krn.diagonal().add_(1e-7)
+        krn.diagonal(dim1=-2, dim2=-1).add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
+        y = y.view(-1, y.shape[-1], 1)
 
-        wt = tc.squeeze(tc.cholesky_solve(y.reshape(-1, 1), krnchd))
+        wt = tc.cholesky_solve(y, krnchd)
 
-        llhd = 0.5 * tc.dot(wt, y) + tc.sum(tc.log(
-            tc.diag(krnchd))) + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
+        wt.squeeze_(2)
+        y.squeeze_(2)
+
+        llhd = 0.5 * wt.mul_(y).sum(-1) + tc.log(
+            tc.diagonal(krnchd, dim1=-2, dim2=-1)).sum(
+                -1) + 0.5 * y.shape[-1] * tc.log(tc.tensor(2 * np.pi))
+
+        llhd.squeeze_(0)
 
         self.loss_value = llhd.numpy()
 
@@ -53,19 +60,30 @@ class MLE(Loss):
 
         krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
                                                    self.model.x)
-        krn.diagonal().add_(1e-7)
+        krn.diagonal(dim1=-2, dim2=-1).add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
+        y = y.view(-1, y.shape[-1], 1)
 
-        wt = tc.cholesky_solve(y.reshape(-1, 1), krnchd).squeeze_()
-        kk = tc.cholesky_solve(dkrn, krnchd)
+        krnchd = krnchd.view(-1, krnchd.shape[-2], krnchd.shape[-1])
+        dkrn = dkrn.view(-1, dkrn.shape[-3], dkrn.shape[-2], dkrn.shape[-1])
 
-        tr1 = tc.tensordot(dkrn, wt[:, None].mul(wt[None, :]), dims=2)
+        wt = tc.cholesky_solve(y, krnchd)
+
+        wt.squeeze_(2)
+        y.squeeze_(2)
+
+        kk = tc.cholesky_solve(dkrn, krnchd[:, None, :, :])
+
+        wtb = wt[:, :, None].mul(wt[:, None, :])
+        tr1 = dkrn.mul_(wtb[:, None, :, :]).sum((-1, -2))
         # tr1 = oes.contract('i,kij,j->k', wt, dkrn, wt, backend='torch')
         tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
 
         jac_llhd = tr1.sub_(tr2).mul_(-0.5)
+
+        jac_llhd.squeeze_(0)
 
         self.grad_value = jac_llhd.numpy()
 
@@ -75,22 +93,34 @@ class MLE(Loss):
 
         krn, dkrn = self.model.cov.kernel_and_grad(tc.from_numpy(params),
                                                    self.model.x)
-        krn.diagonal().add_(1e-7)
+        krn.diagonal(dim1=-2, dim2=-1).add_(1e-7)
         krnchd = tc.cholesky(krn)
 
         y = self.model.y
+        y = y.view(-1, y.shape[-1], 1)
 
-        wt = tc.squeeze(tc.cholesky_solve(y.reshape(-1, 1), krnchd))
+        wt = tc.cholesky_solve(y, krnchd)
+        wt.squeeze_(2)
+        y.squeeze_(2)
+        wtb = wt[:, :, None].mul(wt[:, None, :])
 
-        llhd = 0.5 * tc.dot(wt, y) + tc.sum(tc.log(
-            tc.diag(krnchd))) + 0.5 * len(y) * tc.log(tc.tensor(2 * np.pi))
+        llhd = 0.5 * wt.mul_(y).sum(-1) + tc.log(
+            tc.diagonal(krnchd, dim1=-2, dim2=-1)).sum(
+                -1) + 0.5 * y.shape[-1] * tc.log(tc.tensor(2 * np.pi))
 
-        kk = tc.cholesky_solve(dkrn, krnchd)
+        llhd.squeeze_(0)
 
-        tr1 = tc.tensordot(dkrn, wt[:, None].mul(wt[None, :]), dims=2)
+        krnchd = krnchd.view(-1, krnchd.shape[-2], krnchd.shape[-1])
+        dkrn = dkrn.view(-1, dkrn.shape[-3], dkrn.shape[-2], dkrn.shape[-1])
+
+        kk = tc.cholesky_solve(dkrn, krnchd[:, None, :, :])
+
+        tr1 = dkrn.mul_(wtb[:, None, :, :]).sum((-1, -2))
         tr2 = tc.diagonal(kk, dim1=-1, dim2=-2).sum(-1)
 
         jac_llhd = tr1.sub_(tr2).mul_(-0.5)
+
+        jac_llhd.squeeze_(0)
 
         self.loss_value = llhd.numpy()
         self.grad_value = jac_llhd.numpy()
