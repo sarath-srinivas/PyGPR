@@ -10,6 +10,8 @@ def update_model(loss: Loss, y: Tensor, eps: float) -> None:
     """
 
     loss.model.y = tc.clone(y)
+    loss.model.need_upd = True
+
     old_params = tc.clone(loss.model.params).numpy()
 
     f0, J = loss.loss_and_grad(old_params)
