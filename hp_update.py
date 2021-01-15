@@ -5,7 +5,8 @@ from .loss import Loss
 
 def update_model(loss: Loss, y: Tensor, eps: float) -> None:
     """
-     Update GPR model hyperparameters with new sample y ~ eps*y_old
+     Update GPR model hyperparameters with new sample y
+      where y - y_old ~ O(eps)
     """
 
     loss.model.y = tc.clone(y)
@@ -24,3 +25,5 @@ def update_model(loss: Loss, y: Tensor, eps: float) -> None:
     new_params = old_params - gamma * J
 
     loss.model.set_params(tc.from_numpy(new_params))
+
+    return None
