@@ -1,10 +1,9 @@
 import torch as tc
-import numpy as np
+
 tc.set_default_tensor_type(tc.DoubleTensor)
 
 
 class UNIFORM(object):
-
     def __init__(self, seed):
         self.seed = seed
 
@@ -16,7 +15,6 @@ class UNIFORM(object):
 
 
 class MATERN1(UNIFORM):
-
     def __init__(self, seed):
         super().__init__(seed)
         self.min_dist = None
@@ -40,7 +38,7 @@ class MATERN1(UNIFORM):
 
             dist = tc.sum((xc[:k, :] - x).square_(), 1).sqrt_()
 
-            if tc.all(dist.sub_(min_dist) > 1E-5):
+            if tc.all(dist.sub_(min_dist) > 1e-5):
                 xc[k, :] = x
                 k += 1
                 count *= 0
@@ -52,7 +50,7 @@ class MATERN1(UNIFORM):
     def sample(self, n, mins, maxs):
         vol = tc.prod(maxs - mins)
         dim = len(mins)
-        min_dist = (vol / n)**(1 / dim)
+        min_dist = (vol / n) ** (1 / dim)
 
         xc = self.sample_repulsion(mins, maxs, min_dist)
 
@@ -97,28 +95,26 @@ def euclidean_dist(x, y):
     x2 = tc.sum(x.square(), 1)
     y2 = tc.sum(y.square(), 1)
 
-    sqd = -2.0 * tc.matmul(x, y.transpose(0, 1)) + (x2.reshape(-1, 1) +
-                                                    y2.reshape(1, -1))
+    sqd = -2.0 * tc.matmul(x, y.transpose(0, 1)) + x2[:, None].add(y2[None, :])
 
-    return sqd.sqrt_()
+    return sqd
 
 
-def cluster_samples(xc, ns, mins, maxs):
+def cluster_samples(x, xc):
 
-    nc = xc.shape[0]
-    dim = xc.shape[1]
+    n = x.shape[-2]
+    nc = xc.shape[-2]
+    assert n % nc == 0
+    ns = n // nc
 
-    xpart = tc.empty([nc, ns, dim])
-
-    x = mins + tc.rand(10 * ns * nc, dim).mul_(maxs - mins)
+    xpart = tc.empty([nc, ns, x.shape[-1]])
 
     dist = euclidean_dist(x, xc)
 
     idx = tc.argmin(dist, 1)
 
     for i in range(0, nc):
-
-        xpart[i, :, :] = x[idx == i][:ns, :]
+        xpart[i, :, :] = x[idx == i, :]
 
     return xpart
 

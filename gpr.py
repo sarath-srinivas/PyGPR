@@ -2,20 +2,28 @@ import torch as tc
 from torch import Tensor
 from typing import Sequence
 from .covar import Covar
+
 tc.set_default_tensor_type(tc.DoubleTensor)
 
 
-class GPR():
+class GPR:
     """
      Base class for Gaussian process regression models.
     """
+
     def __init__(self, x: Tensor, y: Tensor, cov: Covar) -> None:
         self.x: Tensor = x
         self.y: Tensor = y
         self.cov = cov
 
         self.params: Tensor = NotImplemented
+        self.need_upd: bool = True
 
+        return None
+
+    def set_params(self, params: Tensor) -> None:
+        self.params = tc.clone(params)
+        self.need_upd = True
         return None
 
     def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
@@ -32,6 +40,7 @@ class Exact_GP(GPR):
     """
      Exact GP model.
     """
+
     def __init__(self, x: Tensor, y: Tensor, cov: Covar) -> None:
 
         super().__init__(x, y, cov)
@@ -51,8 +60,9 @@ class Exact_GP(GPR):
             self.krn = self.cov.kernel(self.params, self.x)
             self.krn.diagonal(dim1=-2, dim2=-1).add_(1e-7)
             self.krnchd = tc.cholesky(self.krn)
-            self.wt = tc.cholesky_solve(self.y[..., None],
-                                        self.krnchd).squeeze_(-1)
+            self.wt = tc.cholesky_solve(
+                self.y[..., None], self.krnchd
+            ).squeeze_(-1)
             self.need_upd = False
         return None
 
@@ -60,8 +70,10 @@ class Exact_GP(GPR):
 
         self.update()
         krns = self.cov.kernel(self.params, self.x, xp)
-        ys = tc.bmm(krns.view(-1, *krns.shape[-2:]),
-                    self.wt.view(-1, self.wt.shape[-1], 1))
+        ys = tc.bmm(
+            krns.view(-1, *krns.shape[-2:]),
+            self.wt.view(-1, self.wt.shape[-1], 1),
+        )
 
         ys = ys.squeeze_()
 
@@ -73,25 +85,28 @@ class Exact_GP(GPR):
         return [ys, covars]
 
     def predict_var(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
-        krns = kwargs['krns']
+        krns = kwargs["krns"]
         krnss = self.cov.kernel(self.params, xp)
         krnst = krns.transpose(-2, -1)
         lks = tc.cholesky_solve(krnst, self.krnchd)
 
         var = tc.diagonal(krnss, dim1=-2, dim2=-1).sub_(
-            krns.mul_(lks.transpose(-2, -1)).sum(-1))
+            krns.mul_(lks.transpose(-2, -1)).sum(-1)
+        )
 
         return var
 
     def predict_covar(self, xp: Tensor, **kwargs: Tensor) -> Tensor:
-        krns = kwargs['krns']
+        krns = kwargs["krns"]
         krnss = self.cov.kernel(self.params, xp)
         krnst = krns.transpose(-2, -1)
         lks = tc.cholesky_solve(krnst, self.krnchd)
 
         covars = krnss.sub_(
-            tc.bmm(krns.view(-1, *krns.shape[-2:]),
-                   lks.view(-1, *lks.shape[-2:])).squeeze())
+            tc.bmm(
+                krns.view(-1, *krns.shape[-2:]), lks.view(-1, *lks.shape[-2:])
+            ).squeeze()
+        )
 
         return covars
 
