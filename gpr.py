@@ -26,7 +26,10 @@ class GPR:
         self.need_upd = True
         return None
 
-    def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
+    def update(self) -> None:
+        raise NotImplementedError
+
+    def predict(self, xp: Tensor, var: str) -> Sequence[Tensor]:
         raise NotImplementedError
 
     def predict_var(self, xp: Tensor, **kwrgs: Tensor) -> Tensor:
@@ -66,7 +69,7 @@ class Exact_GP(GPR):
             self.need_upd = False
         return None
 
-    def predict(self, xp: Tensor, diag_only: bool = False) -> Sequence[Tensor]:
+    def predict(self, xp: Tensor, var: str = "full") -> Sequence[Tensor]:
 
         self.update()
         krns = self.cov.kernel(self.params, self.x, xp)
@@ -77,10 +80,12 @@ class Exact_GP(GPR):
 
         ys = ys.squeeze_()
 
-        if diag_only is True:
+        if var == "full":
+            covars = self.predict_covar(xp, krns=krns)
+        elif var == "diag":
             covars = self.predict_var(xp, krns=krns)
         else:
-            covars = self.predict_covar(xp, krns=krns)
+            covars = NotImplemented
 
         return [ys, covars]
 
@@ -122,16 +127,18 @@ xp: Tensor[..., np, dim]
     Batched Evaluation samples at which the interpolation is required.
     It should be atleast 2D tensor.
 
-diag_only: bool, optional
-    If True computes only the diagonal of the prediction covariance.
-    defaults to False.
+var: string, optional
+    If "full" computes the full prediction covariance
+    if "diag" computes only diagonal of the prediction covariance.
+    else do not computes covariance
 
 Returns
 -------
 [ Tensor[..., np], Tensor[..., np, np] ]\
     or [ Tensor[..., np], Tensor[..., np] ]
-    If diag_only is False, returns mean and covariance matrix.
-    If diag_only is True, returns mean and variance.
+    If var is "full", returns mean and covariance matrix.
+    If var is "diag" , returns mean and variance.
+    If var is anything else, returns mean and NotImplented
 """
 
 GPR.predict_var.__doc__ = """

@@ -9,7 +9,7 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 dim = (2, 3, 7)
 n = (10, 50, 100)
 
-covars = ([Squared_exponential, White_noise], )
+covars = ([Squared_exponential, White_noise],)
 
 tparams = list(product(n, dim, covars))
 
@@ -25,7 +25,7 @@ def test_interpolate(n: int, dim: int, covars: Covar) -> None:
 
     gp = Exact_GP(x, y, cov)
 
-    ys, covar_s = gp.predict(xs, diag_only=True)
+    ys, covar_s = gp.predict(xs, var="diag")
 
     assert tc.allclose(ys, y, atol=1e-4)
     assert covar_s.shape == ys.shape
@@ -33,10 +33,9 @@ def test_interpolate(n: int, dim: int, covars: Covar) -> None:
 
 
 @pyt.mark.parametrize("n,dim,covars", tparams)
-def test_pred_covar(n: int,
-                    dim: int,
-                    covars: Covar,
-                    tol: float = 1e-7) -> None:
+def test_pred_covar(
+    n: int, dim: int, covars: Covar, tol: float = 1e-7
+) -> None:
     x = tc.rand(n, dim)
     y = tc.sin(-x.sum(-1))
 
@@ -70,7 +69,7 @@ def test_interpolate_batch(nc: int, n: int, dim: int, covars: Covar) -> None:
 
     gp = Exact_GP(x, y, cov)
 
-    ys, covar_s = gp.predict(xs, diag_only=True)
+    ys, covar_s = gp.predict(xs, var="diag")
 
     assert ys.shape == (nc, xs.shape[0])
     assert tc.allclose(ys, y.reshape(nc, -1), atol=1e-4)
@@ -78,11 +77,9 @@ def test_interpolate_batch(nc: int, n: int, dim: int, covars: Covar) -> None:
 
 
 @pyt.mark.parametrize("nc,n,dim,covars", tparams)
-def test_pred_covar_batch(nc: int,
-                          n: int,
-                          dim: int,
-                          covars: Covar,
-                          tol: float = 1e-7) -> None:
+def test_pred_covar_batch(
+    nc: int, n: int, dim: int, covars: Covar, tol: float = 1e-7
+) -> None:
     xl = tc.rand(n, dim)
     x = tc.empty(nc, n, dim).copy_(xl)
     y = tc.sin(-x.sum(-1))
