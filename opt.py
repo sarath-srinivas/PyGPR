@@ -3,6 +3,7 @@ import numpy as np
 from numpy import ndarray
 from .loss import Loss
 import scipy.optimize as scopt
+from typing import Callable
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
@@ -118,3 +119,79 @@ class Nelder_Mead(Opt):
 
     def step(self):
         raise NotImplementedError
+
+
+def hessian(
+    x: np.ndarray, jac: Callable[..., np.ndarray], eps: float
+) -> np.ndarray:
+    dim = x.shape[-1]
+    hess = np.empty([dim, dim])
+
+    for i in range(0, dim):
+        x_eps = np.copy(x)
+        x_eps[i] += eps
+        hess[:, i] = (jac(x_eps) - jac(x)) / eps
+
+    return hess
+
+
+class CG_Quad(Opt):
+    """
+     Linear Conjugate Gradient algorithm
+    """
+
+    def __init__(self, loss: Loss, par: ndarray = None) -> None:
+        super().__init__(loss)
+        self.x: ndarray = loss.model.params.numpy() if par is None else par
+        self.r: ndarray = loss.grad(par)
+        self.p: ndarray = -1.0 * self.r
+        self.eps = 1e-5
+        self.alp: float = NotImplemented
+        self.bet: float = NotImplemented
+        return None
+
+    def hessian_product(self, par: ndarray, v: ndarray, eps: float) -> ndarray:
+        Hv = (self.loss.grad(par + eps * v) - self.loss.grad(par)) / eps
+        return Hv
+
+    def step(self) -> None:
+        r = np.copy(self.r)
+        p = np.copy(self.p)
+        x = np.copy(self.x)
+
+        print(r - self.loss.grad(x))
+
+        Hp = self.hessian_product(x, p, eps=1e-5)
+
+        # Hp = (self.loss.grad(x + self.eps * p) - r) / self.eps
+
+        rr = np.dot(r, r)
+
+        alp = rr / np.dot(p, Hp)
+
+        x = x + alp * p
+        r = r + alp * Hp
+        bet = np.dot(r, r) / rr
+        p = bet * p - r
+
+        self.r = np.copy(r)
+        self.p = np.copy(p)
+        self.x = np.copy(x)
+
+        return None
+
+    def minimize(self, gtol: float = 1e-4, max_iter: int = 1000) -> int:
+
+        k = 0
+        gnorm = np.linalg.norm(self.r)
+
+        while gnorm > gtol and k < max_iter:
+            self.step()
+            gnorm = np.linalg.norm(self.r)
+            k = k + 1
+            print(k, gnorm)
+
+        if self.loss.model is not None:
+            self.loss.model.set_params(tc.tensor(self.x))
+
+        return k
