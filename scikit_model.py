@@ -22,14 +22,14 @@ class SK_WRAP(RegressorMixin, BaseEstimator):
         return None
 
     def fit(self, x: Tensor, y: Tensor) -> Any:
-        print("Fitting")
+        print("Fitting", x.shape, y.shape)
         self.model.x = x
         self.model.y = y
 
         return self
 
     def predict(self, xp: Tensor) -> Tensor:
-        print("Predicting")
+        print("Predicting", xp.shape)
         self.need_upd = True
         yp, covar = self.model.predict(xp, var="none")
         return yp

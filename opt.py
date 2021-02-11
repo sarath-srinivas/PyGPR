@@ -13,9 +13,10 @@ class Opt:
      Base class for optimisers.
     """
 
-    def __init__(self, loss: Loss) -> None:
+    def __init__(self, loss: Loss, par: ndarray = None) -> None:
         self.loss: Loss = loss
         self.args: dict = {}
+        self.x: ndarray = NotImplemented
         return None
 
     def minimize(self):
@@ -140,14 +141,22 @@ class CG_Quad(Opt):
      Linear Conjugate Gradient algorithm
     """
 
-    def __init__(self, loss: Loss, par: ndarray = None) -> None:
+    def __init__(
+        self,
+        loss: Loss,
+        par: ndarray = None,
+        gtol: float = 1e-4,
+        max_iter: int = 100,
+        fd_eps: float = 1e-5,
+    ) -> None:
+
         super().__init__(loss)
         self.x: ndarray = loss.model.params.numpy() if par is None else par
         self.r: ndarray = loss.grad(par)
         self.p: ndarray = -1.0 * self.r
-        self.eps = 1e-5
-        self.alp: float = NotImplemented
-        self.bet: float = NotImplemented
+        self.eps = fd_eps
+        self.max_iter = max_iter
+        self.gtol = gtol
         return None
 
     def hessian_product(self, par: ndarray, v: ndarray, eps: float) -> ndarray:
@@ -159,11 +168,7 @@ class CG_Quad(Opt):
         p = np.copy(self.p)
         x = np.copy(self.x)
 
-        print(r - self.loss.grad(x))
-
-        Hp = self.hessian_product(x, p, eps=1e-5)
-
-        # Hp = (self.loss.grad(x + self.eps * p) - r) / self.eps
+        Hp = self.hessian_product(x, p, eps=self.eps)
 
         rr = np.dot(r, r)
 
@@ -180,16 +185,105 @@ class CG_Quad(Opt):
 
         return None
 
-    def minimize(self, gtol: float = 1e-4, max_iter: int = 1000) -> int:
+    def minimize(self) -> int:
 
         k = 0
         gnorm = np.linalg.norm(self.r)
 
-        while gnorm > gtol and k < max_iter:
+        fstr = open("opt.dat", "w")
+        while gnorm > self.gtol and k < self.max_iter:
             self.step()
             gnorm = np.linalg.norm(self.r)
             k = k + 1
-            print(k, gnorm)
+            print(k, gnorm, file=fstr)
+
+        fstr.close()
+
+        if self.loss.model is not None:
+            self.loss.model.set_params(tc.tensor(self.x))
+
+        return k
+
+
+class BFGS_Quad(Opt):
+    """
+     BFGS fror quadratic function.
+    """
+
+    def __init__(
+        self,
+        loss: Loss,
+        par: ndarray = None,
+        H0: ndarray = None,
+        gtol: float = 1e-4,
+        max_iter: int = 100,
+        fd_eps: float = 1e-5,
+    ) -> None:
+
+        super().__init__(loss)
+        self.x: ndarray = loss.model.params.numpy() if par is None else par
+        self.r: ndarray = loss.grad(par)
+        self.HI: ndarray = np.identity(
+            self.x.shape[-1]
+        ) if H0 is None else np.linalg.inv(H0)
+        self.s: ndarray = NotImplemented
+        self.y: ndarray = NotImplemented
+        self.eps = fd_eps
+        self.gtol = gtol
+        self.max_iter = max_iter
+        return None
+
+    def hessian_inv_update(
+        self, HI: ndarray, s: ndarray, y: ndarray
+    ) -> ndarray:
+
+        Id = np.identity(HI.shape[-1])
+
+        rho = 1 / np.dot(y, s)
+
+        G = Id - rho * np.outer(s, y)
+        GT = Id - rho * np.outer(y, s)
+
+        H_upd = np.matmul(np.matmul(G, HI), GT) + rho * np.outer(s, s)
+
+        return H_upd
+
+    def step(self):
+        HI = np.copy(self.HI)
+        r = np.copy(self.r)
+        x = np.copy(self.x)
+
+        s = np.copy(x)
+        y = np.copy(r)
+
+        p = -1.0 * np.matmul(HI, r)
+
+        x = x + p
+
+        r = self.loss.grad(x)
+
+        s = x - s
+        y = r - y
+
+        self.HI = self.hessian_inv_update(HI, s, y)
+        self.x = np.copy(x)
+        self.r = np.copy(r)
+
+        return None
+
+    def minimize(self):
+        k = 0
+        gnorm = np.linalg.norm(self.r)
+
+        fstr = open("opt.dat", "w")
+
+        while gnorm > self.gtol and k < self.max_iter:
+            self.step()
+            gnorm = np.linalg.norm(self.r)
+            k = k + 1
+            print(k, gnorm, file=fstr)
+
+        fstr.close()
 
         if self.loss.model is not None:
             self.loss.model.set_params(tc.tensor(self.x))

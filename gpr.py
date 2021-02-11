@@ -1,3 +1,7 @@
+"""
+ This module has GPR classes
+"""
+
 import torch as tc
 from torch import Tensor
 from typing import Sequence
