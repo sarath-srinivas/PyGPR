@@ -46,9 +46,9 @@ def test_opt_quad(dim: int, optim: T_OPT, seed: int) -> None:
 
     par = np.random.rand(dim)
 
-    opt = optim(loss, par)
+    opt = optim(loss)
 
-    k = opt.minimize()
+    k = opt.minimize(par=par)
 
     print("iter:", k)
     print("kappa:", kappa)

@@ -144,16 +144,15 @@ class CG_Quad(Opt):
     def __init__(
         self,
         loss: Loss,
-        par: ndarray = None,
         gtol: float = 1e-4,
         max_iter: int = 100,
         fd_eps: float = 1e-5,
     ) -> None:
 
         super().__init__(loss)
-        self.x: ndarray = loss.model.params.numpy() if par is None else par
-        self.r: ndarray = loss.grad(par)
-        self.p: ndarray = -1.0 * self.r
+        self.x: ndarray = NotImplemented
+        self.r: ndarray = NotImplemented
+        self.p: ndarray = NotImplemented
         self.eps = fd_eps
         self.max_iter = max_iter
         self.gtol = gtol
@@ -185,7 +184,11 @@ class CG_Quad(Opt):
 
         return None
 
-    def minimize(self) -> int:
+    def minimize(self, par: ndarray = None) -> int:
+
+        self.x = self.loss.model.params.numpy() if par is None else par
+        self.r = self.loss.grad(par)
+        self.p = -1.0 * self.r
 
         k = 0
         gnorm = np.linalg.norm(self.r)
@@ -213,21 +216,15 @@ class BFGS_Quad(Opt):
     def __init__(
         self,
         loss: Loss,
-        par: ndarray = None,
-        H0: ndarray = None,
         gtol: float = 1e-4,
         max_iter: int = 100,
         fd_eps: float = 1e-5,
     ) -> None:
 
         super().__init__(loss)
-        self.x: ndarray = loss.model.params.numpy() if par is None else par
-        self.r: ndarray = loss.grad(par)
-        self.HI: ndarray = np.identity(
-            self.x.shape[-1]
-        ) if H0 is None else np.linalg.inv(H0)
-        self.s: ndarray = NotImplemented
-        self.y: ndarray = NotImplemented
+        self.x: ndarray = NotImplemented
+        self.r: ndarray = NotImplemented
+        self.HI: ndarray = NotImplemented
         self.eps = fd_eps
         self.gtol = gtol
         self.max_iter = max_iter
@@ -271,7 +268,14 @@ class BFGS_Quad(Opt):
 
         return None
 
-    def minimize(self):
+    def minimize(self, par: ndarray = None, H0: ndarray = None):
+
+        self.x = self.loss.model.params.numpy() if par is None else par
+        self.r = self.loss.grad(par)
+        self.HI = (
+            np.identity(self.x.shape[-1]) if H0 is None else np.linalg.inv(H0)
+        )
+
         k = 0
         gnorm = np.linalg.norm(self.r)
 
