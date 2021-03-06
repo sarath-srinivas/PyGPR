@@ -271,7 +271,7 @@ class BFGS_Quad(Opt):
     def minimize(self, par: ndarray = None, H0: ndarray = None):
 
         self.x = self.loss.model.params.numpy() if par is None else par
-        self.r = self.loss.grad(par)
+        self.r = self.loss.grad(self.x)
         self.HI = (
             np.identity(self.x.shape[-1]) if H0 is None else np.linalg.inv(H0)
         )
