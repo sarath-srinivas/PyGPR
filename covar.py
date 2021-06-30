@@ -6,11 +6,12 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 tc.set_printoptions(precision=7, sci_mode=True)
 
 
-class Covar():
+class Covar:
     """
      Base class for covariance kernels for Gaussian process
      regression.
     """
+
     def get_params_shape(self, x: Tensor) -> List[int]:
         raise NotImplementedError
 
@@ -31,8 +32,9 @@ class Compose(Covar):
     """
      Class for composing covariance kernels to form new one.
     """
-    def __init__(self, covars: Sequence[T_Covar]) -> None:
-        self.covars = [covar() for covar in covars]
+
+    def __init__(self, covars: Sequence[Covar]) -> None:
+        self.covars = covars
 
     def get_params_shape(self, x: Tensor) -> List[int]:
         nparams = sum([covar.get_params_shape(x)[-1] for covar in self.covars])
@@ -81,9 +83,10 @@ class Compose(Covar):
 
 
 class Squared_exponential(Covar):
-    '''
+    """
      Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
-    '''
+    """
+
     def get_params_shape(self, x: Tensor) -> List[int]:
         shape = list(x.shape)
         shape[-1] = x.shape[-1] + 1
@@ -102,16 +105,18 @@ class Squared_exponential(Covar):
 
         if xp is None:
 
-            sqd = -2.0 * tc.matmul(x, x.transpose(1, 2)) \
-                + x2.unsqueeze(2).add(x2.unsqueeze(1))
+            sqd = -2.0 * tc.matmul(x, x.transpose(1, 2)) + x2.unsqueeze(2).add(
+                x2.unsqueeze(1)
+            )
 
         else:
             xp = xp.view((-1, xp.shape[-2], xp.shape[-1]))
 
             xp2 = tc.sum(xp.square(), 2)
 
-            sqd = -2.0 * tc.matmul(xp, x.transpose(1, 2)) \
-                + xp2.unsqueeze_(2).add(x2.unsqueeze_(1))
+            sqd = -2.0 * tc.matmul(xp, x.transpose(1, 2)) + xp2.unsqueeze_(
+                2
+            ).add(x2.unsqueeze_(1))
 
             xp.squeeze_(0)
 
@@ -203,6 +208,7 @@ class White_noise(Covar):
     """
      Gaussian noise covariance kernel
     """
+
     def get_params_shape(self, x: Tensor) -> List[int]:
         shape = list(x.shape)
         shape[-1] = 1
@@ -248,8 +254,9 @@ class White_noise(Covar):
 
         dkrn = tc.empty([nc, nhp, n, n])
 
-        dkrn[:, 0, :, :] = krnb.mul(sig_n[:, None,
-                                          None].reciprocal().mul_(2.0))
+        dkrn[:, 0, :, :] = krnb.mul(
+            sig_n[:, None, None].reciprocal().mul_(2.0)
+        )
 
         krn.squeeze_(0)
         dkrn.squeeze_(0)
