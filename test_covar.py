@@ -1,5 +1,5 @@
 import torch as tc
-from typing import Callable, Sequence
+from typing import Sequence
 
 # from gpr import log_likelihood, jac_log_likelihood
 from .covar import Squared_exponential, Covar, Compose, White_noise
@@ -8,25 +8,23 @@ import pytest as pyt
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
-T_Covar = Callable[..., Covar]
-
 n = (10, 100, 1000)
 np = (5, 50, 500)
 dim = (2, 5)
 
-composes = ([Squared_exponential,
-             Squared_exponential], [Squared_exponential, White_noise],
-            [Squared_exponential, Squared_exponential, White_noise])
+composes = (
+    [Squared_exponential(), Squared_exponential()],
+    [Squared_exponential(), White_noise()],
+    [Squared_exponential(), Squared_exponential(), White_noise()],
+)
 
 tparams = list(product(composes, n, np, dim))
 
 
 @pyt.mark.parametrize("covars, n, np, dim", tparams)
-def test_compose_covar(covars: Sequence[T_Covar],
-                       n: int,
-                       np: int,
-                       dim: int,
-                       tol: float = 1e-7) -> None:
+def test_compose_covar(
+    covars: Sequence[Covar], n: int, np: int, dim: int, tol: float = 1e-7
+) -> None:
     x = tc.rand([n, dim])
     xp = tc.rand([np, dim])
     cov_c = Compose(covars)
@@ -39,8 +37,7 @@ def test_compose_covar(covars: Sequence[T_Covar],
     chunks = [covar.get_params_shape(x)[-1] for covar in cov_c.covars]
     params = hp.split(chunks, dim=-1)
 
-    for i, covar in enumerate(covars):
-        cov = covar()
+    for i, cov in enumerate(covars):
         krn.add_(cov.kernel(params[i], x, xp=xp))
 
     assert tc.allclose(krn_c, krn, atol=tol)
@@ -52,10 +49,9 @@ tparams1 = list(product(composes, n, dim))
 
 
 @pyt.mark.parametrize("covars, n, dim", tparams1)
-def test_compose_deriv_covar(covars: Sequence[T_Covar],
-                             n: int,
-                             dim: int,
-                             tol: float = 1e-7) -> None:
+def test_compose_deriv_covar(
+    covars: Sequence[Covar], n: int, dim: int, tol: float = 1e-7
+) -> None:
     x = tc.rand([n, dim])
     cov_c = Compose(covars)
     hp_shape = cov_c.get_params_shape(x)
@@ -69,8 +65,7 @@ def test_compose_deriv_covar(covars: Sequence[T_Covar],
 
     dkrns = []
 
-    for i, covar in enumerate(covars):
-        cov = covar()
+    for i, cov in enumerate(covars):
         krn.add_(cov.kernel_and_grad(params[i], x)[0])
         dkrns.append(cov.kernel_and_grad(params[i], x)[1])
 
@@ -82,22 +77,21 @@ def test_compose_deriv_covar(covars: Sequence[T_Covar],
     return None
 
 
-def compose():
-    return Compose([Squared_exponential, Squared_exponential, White_noise])
+compose = Compose(
+    [Squared_exponential(), Squared_exponential(), White_noise()]
+)
 
 
-covars = (Squared_exponential, White_noise, compose)
+covars = (Squared_exponential(), White_noise(), compose)
 
-tparams = list(product(covars, n, dim))
+tparams2 = list(product(covars, n, dim))
 
 
-@pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_symmetric(covar: T_Covar,
-                         n: int,
-                         dim: int,
-                         tol: float = 1e-7) -> None:
+@pyt.mark.parametrize("cov, n, dim", tparams2)
+def test_covar_symmetric(
+    cov: Covar, n: int, dim: int, tol: float = 1e-7
+) -> None:
     x = tc.rand([n, dim])
-    cov = covar()
     hp = tc.rand(cov.get_params_shape(x))
     krn = cov.kernel(hp, x)
 
@@ -106,31 +100,28 @@ def test_covar_symmetric(covar: T_Covar,
     return None
 
 
-@pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_posdef(covar: T_Covar, n: int, dim: int, tol=1e-7) -> None:
+@pyt.mark.parametrize("cov, n, dim", tparams2)
+def test_covar_posdef(cov: Covar, n: int, dim: int, tol=1e-7) -> None:
     x = tc.rand([n, dim])
-    cov = covar()
     hp = tc.rand(cov.get_params_shape(x))
     krn = cov.kernel(hp, x)
 
     krn.add_(1e-7 * tc.eye(n))
-    eig = tc.eig(krn)[0][:, 0]
+    eig = tc.linalg.eigvals(krn)
 
-    assert tc.all(eig > 0)
+    assert tc.all(tc.real(eig) > 0)
+    assert tc.all(tc.imag(eig).abs_() < 1e-7)
 
     return None
 
 
-@pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_batch(covar: T_Covar, n: int, dim: int) -> None:
+@pyt.mark.parametrize("cov, n, dim", tparams2)
+def test_covar_batch(cov: Covar, n: int, dim: int) -> None:
     nc = 4
     xb = tc.rand(nc, n, dim)
-    covb = covar()
-    hpb = tc.rand(covb.get_params_shape(xb))
+    hpb = tc.rand(cov.get_params_shape(xb))
 
-    krn_batch, dkrn_batch = covb.kernel_and_grad(hpb, xb)
-
-    cov = covar()
+    krn_batch, dkrn_batch = cov.kernel_and_grad(hpb, xb)
 
     krn1, dkrn1 = cov.kernel_and_grad(hpb[0, :], xb[0, :, :])
     krn2, dkrn2 = cov.kernel_and_grad(hpb[1, :], xb[1, :, :])
@@ -146,13 +137,11 @@ def test_covar_batch(covar: T_Covar, n: int, dim: int) -> None:
     return None
 
 
-@pyt.mark.parametrize("covar, n, dim", tparams)
-def test_covar_deriv(covar: T_Covar,
-                     n: int,
-                     dim: int,
-                     eps_diff: float = 1e-5) -> None:
+@pyt.mark.parametrize("cov, n, dim", tparams2)
+def test_covar_deriv(
+    cov: Covar, n: int, dim: int, eps_diff: float = 1e-5
+) -> None:
     x = tc.rand(n, dim)
-    cov: Covar = covar()
     hp = tc.rand(cov.get_params_shape(x))
     nhp = hp.shape[-1]
 

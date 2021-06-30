@@ -1,34 +1,31 @@
 import torch as tc
 from torch import Tensor
-from typing import List, Sequence, Callable
+from typing import List, Sequence, Protocol
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 tc.set_printoptions(precision=7, sci_mode=True)
 
 
-class Covar:
+class Covar(Protocol):
     """
-     Base class for covariance kernels for Gaussian process
+     Protocol for covariance kernels for Gaussian process
      regression.
     """
 
     def get_params_shape(self, x: Tensor) -> List[int]:
-        raise NotImplementedError
+        ...
 
     def init_params(self, x: Tensor) -> Tensor:
-        raise NotImplementedError
+        ...
 
     def kernel(self, params: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
-        raise NotImplementedError
+        ...
 
     def kernel_and_grad(self, params: Tensor, x: Tensor) -> List[Tensor]:
-        raise NotImplementedError
+        ...
 
 
-T_Covar = Callable[..., Covar]
-
-
-class Compose(Covar):
+class Compose:
     """
      Class for composing covariance kernels to form new one.
     """
@@ -37,6 +34,7 @@ class Compose(Covar):
         self.covars = covars
 
     def get_params_shape(self, x: Tensor) -> List[int]:
+
         nparams = sum([covar.get_params_shape(x)[-1] for covar in self.covars])
         shape = list(x.shape)
         shape[-1] = nparams
@@ -45,6 +43,7 @@ class Compose(Covar):
         return shape
 
     def init_params(self, x: Tensor) -> Tensor:
+
         params = [covar.init_params(x) for covar in self.covars]
         return tc.cat(params, dim=-1)
 
@@ -82,23 +81,26 @@ class Compose(Covar):
         return [krn, dkrn]
 
 
-class Squared_exponential(Covar):
+class Squared_exponential:
     """
      Squared exponential covariance K(x,x') = sig_y * exp(-|(x-x').ls|^2)
     """
 
     def get_params_shape(self, x: Tensor) -> List[int]:
+
         shape = list(x.shape)
         shape[-1] = x.shape[-1] + 1
         shape.pop(-2)
         return shape
 
     def init_params(self, x: Tensor) -> Tensor:
+
         shape = self.get_params_shape(x)
         params = tc.ones(shape)
         return params
 
     def distance(self, x: Tensor, xp: Tensor = None) -> Tensor:
+
         x = x.view((-1, x.shape[-2], x.shape[-1]))
 
         x2 = tc.sum(x.square(), 2)
@@ -204,23 +206,26 @@ class Squared_exponential(Covar):
         return [krn, dkrn]
 
 
-class White_noise(Covar):
+class White_noise:
     """
      Gaussian noise covariance kernel
     """
 
     def get_params_shape(self, x: Tensor) -> List[int]:
+
         shape = list(x.shape)
         shape[-1] = 1
         shape.pop(-2)
         return shape
 
     def init_params(self, x: Tensor) -> Tensor:
+
         shape = self.get_params_shape(x)
         params = 1e-4 * tc.ones(shape)
         return params
 
     def kernel(self, hp: Tensor, x: Tensor, xp: Tensor = None) -> Tensor:
+
         if xp is None:
             hpb = hp.view(-1, hp.shape[-1])
 
