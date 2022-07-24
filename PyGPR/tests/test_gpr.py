@@ -1,6 +1,6 @@
 import torch as tc
-from .gpr import Exact_GP
-from .covar import Covar, Squared_exponential, White_noise, Compose
+from PyGPR import Exact_GP
+from PyGPR import Covar, Squared_exponential, White_noise, Compose
 from itertools import product
 import pytest as pyt
 
@@ -9,7 +9,7 @@ tc.set_default_tensor_type(tc.DoubleTensor)
 dim = (2, 3, 7)
 n = (10, 50, 100)
 
-covars = ([Squared_exponential, White_noise],)
+covars = ([Squared_exponential(), White_noise()],)
 
 tparams = list(product(n, dim, covars))
 

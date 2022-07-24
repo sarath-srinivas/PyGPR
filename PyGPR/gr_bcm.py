@@ -2,8 +2,8 @@ import torch as tc
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-import opt_einsum as oen
-from .gpr import GPR, log_likelihood, jac_log_likelihood
+#import opt_einsum as oen
+from .gpr import GPR, Exact_GP
 
 tc.set_default_tensor_type(tc.DoubleTensor)
 
@@ -25,8 +25,8 @@ class GRBCM(GPR):
         x = tc.cat((tmpx, xl), dim=1)
         y = tc.cat((tmpy, yl), dim=1)
 
-        self.gpg = GPR(xg, yg, cov)
-        self.gpl = GPR(x, y, cov)
+        self.gpg = Exact_GP(xg, yg, cov)
+        self.gpl = Exact_GP(x, y, cov)
 
         self.nc = nc
         self.nsc = nls
@@ -113,9 +113,9 @@ class GRBCM(GPR):
 
         return covars
 
-    def aggregate(self, ys_g, covars_g, ys_l, covars_l, diag_only=True):
+    def aggregate(self, ys_g, covars_g, ys_l, covars_l, var="diag"):
 
-        if diag_only:
+        if var == "diag":
             var_g = covars_g
             var_l = covars_l
         else:
@@ -139,7 +139,7 @@ class GRBCM(GPR):
 
         precs = prec.mul_(beta)
 
-        if diag_only:
+        if var=='diag':
             covars = precs.sum(0).reciprocal_()
             ys = ys.mul_(precs).sum(0).mul_(covars)
         else:
@@ -148,27 +148,11 @@ class GRBCM(GPR):
 
         return ys, covars
 
-    def interpolate(self, xs, diag_only=True):
-        ys_g, covars_g = self.gpg.interpolate(xs, diag_only=diag_only)
-        ys_l, covars_l = self.gpl.interpolate(xs, diag_only=diag_only)
+    def predict(self, xs, var="diag"):
+        ys_g, covars_g = self.gpg.predict(xs, var=var)
+        ys_l, covars_l = self.gpl.predict(xs, var=var)
 
-        return self.aggregate(ys_g, covars_g, ys_l, covars_l, diag_only=diag_only)
-
-    def plot_hparam(self, ax=None):
-        cno = range(0, self.nc)
-        for i in range(0, self.dim):
-            ax.scatter(cno, self.gpl.hp[:, i],
-                       label='length scale {}'.format(i))
-        ax.set(xlabel='Centre no.')
-        ax.legend()
-
-    def plot_jac(self, ax=None):
-        cno = range(0, self.nc)
-        for i in range(0, self.dim):
-            ax.scatter(cno, self.gpl.jac_llhd[:, i],
-                       label='dL/dls {}'.format(i))
-        ax.set(xlabel='Centre no.')
-        ax.legend()
+        return self.aggregate(ys_g, covars_g, ys_l, covars_l, var=var)
 
 
 def log_likelihood_batched(x, y, hp, cov, **kwargs):

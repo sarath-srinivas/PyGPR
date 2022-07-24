@@ -1,8 +1,8 @@
 import torch as tc
 import numpy as np
-from .gpr import Exact_GP
-from .covar import Squared_exponential, White_noise, Compose
-from .loss import MLE
+from PyGPR import Exact_GP
+from PyGPR import Squared_exponential, White_noise, Compose
+from PyGPR import MLE
 from itertools import product
 import pytest as pyt
 
@@ -19,7 +19,7 @@ def test_grad(n: int, dim: int, eps_diff: float = 1e-8) -> None:
     x = tc.rand([n, dim])
     y = tc.exp(-x.square().sum(1))
 
-    cov = Compose([Squared_exponential, White_noise])
+    cov = Compose([Squared_exponential(), White_noise()])
 
     mod = Exact_GP(x, y, cov)
 

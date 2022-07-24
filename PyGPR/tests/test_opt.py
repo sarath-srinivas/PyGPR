@@ -1,6 +1,6 @@
 import torch as tc
-from lib_gpr.opt import Opt, CG_Quad, BFGS_Quad
-from lib_gpr.loss import Loss
+from PyGPR import Opt, CG_Quad, BFGS_Quad
+from PyGPR import Loss
 import pytest as pyt
 from itertools import product
 from typing import Callable

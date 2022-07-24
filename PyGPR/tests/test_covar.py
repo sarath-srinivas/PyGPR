@@ -2,7 +2,7 @@ import torch as tc
 from typing import Sequence
 
 # from gpr import log_likelihood, jac_log_likelihood
-from .covar import Squared_exponential, Covar, Compose, White_noise
+from PyGPR import Squared_exponential, Covar, Compose, White_noise
 from itertools import product
 import pytest as pyt
 
